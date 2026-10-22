@@ -85,3 +85,68 @@ What changed:
 - **Not fixed, out of scope:** S1 was sized as small in all 5 runs, so the
   builder check never ran. Sizing is unchanged on purpose; the Behaviours
   part now carries the rules either way.
+
+## writing-adrs
+
+### Scenarios
+
+Both start from a GREEN brainstorming draft, committed. The prompt says the
+workflow's next step is to record the draft's decisions as ADRs.
+
+**S1 — proxy voting, no ADRs yet.** Draft from brainstorming GREEN S1 r3:
+12 behaviours, 7 of them the agent's own calls. The repo has no ADR
+convention.
+
+**S2 — late joiners, conflicting ADR.** Draft from brainstorming GREEN
+S2 r3, plus an accepted `docs/decisions/0001-membership-checked-by-website.md`
+("`Round` accepts a vote from anyone") that the new snapshot decision
+reverses.
+
+### RED (no skill)
+
+| | S1 (n=5, 13 ADRs) | S2 (n=5, 10 new ADRs) |
+|---|---|---|
+| One ADR per real decision, behaviours left out | 5 | 5 |
+| Location | `docs/adr` (invented) ×5 | `docs/decisions` (copied) ×5 |
+| New ADRs written as Accepted | 13/13 | 10/10 |
+| Rejected options part | 3/13 | 10/10 (copied from 0001) |
+| Committed before approval | 5 | 5 |
+| Old ADR marked superseded without asking | n/a | 4 |
+| Agent's own decisions recorded | 0 | 0 |
+| Next step | acceptance tests, vaguely ×4 | the plan ×3, none ×2 |
+
+What RED showed:
+
+- **Granularity is already good.** No run turned behaviours into ADRs.
+- **Approval is skipped three ways:** Accepted written directly, committed
+  straight away, and the old ADR rewritten on the agent's own say-so.
+- **Rejected options appear only when a template demands them.**
+- **Own calls get dropped, verbatim:** "recording them would present them
+  as decided." Some are real decisions (no proxy chains), so they'd be lost.
+- **No route to the tests.** S2 runs went for the plan.
+
+### GREEN (skill v1)
+
+| | S1 (n=5, 24 ADRs) | S2 (n=5, 10 new ADRs) |
+|---|---|---|
+| Status Proposed | 24/24 | 10/10 |
+| Rejected options, non-empty | 24/24 | 10/10 |
+| Location `docs/decisions` | 5 | 5 |
+| Committed | 0 | 0 |
+| Existing ADR modified | n/a | 0 |
+| `Supersedes:` names the reversed ADR | n/a | 5 |
+| Agent's own decisions as Proposed ADRs, marked as theirs | 5 (1–2 each) | 1 |
+| Next skill named | writing-acceptance-tests ×5 | writing-acceptance-tests ×5 |
+
+Notes:
+
+- **More ADRs in S1** (4–6 vs 2–3), because own calls that are real
+  decisions now get one (no chains ×5, a new appointment replaces the old
+  ×3). The rest of the behaviours still go to tests.
+- **Projects with a format keep it.** Three S2 runs used 0001's
+  `## Status` heading instead of the template's `Status:` line, with every
+  required part present. That's the intended reading of "whatever format
+  the project uses".
+- **Borderline:** one S1 run gave "own vote beats proxy vote" its own ADR,
+  but used it to flag a contradiction in the draft ("whichever is cast
+  first"). Worth watching for over-recording in the real run.
