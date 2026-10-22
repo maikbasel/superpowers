@@ -252,7 +252,7 @@ Notes:
   S2 on one or two (`assertVoteRefused`, `assertVoteCounted`).
 - **Already-true behaviours are handled three ways**, all within the
   skill's "tell your human partner": no new test because the committed one
-  covers it (S2 ×2), a refusal step added so it fails (×1), kept as a
+  covers it (S2 ×2), a new step added so it fails (×2), kept as a
   passing guard and flagged (×1). The scenario check accepts a passing new
   test when the hand-back says "passes already"; RED runs said that too,
   so it doesn't separate the arms.
