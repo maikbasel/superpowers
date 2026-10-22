@@ -14,7 +14,7 @@
 # writing-acceptance-tests
 #                GREEN: skill text in the working tree
 #
-# Usage: run-scenarios.sh <skill> <red|green> [runs] [s1|s2|both]
+# Usage: run-scenarios.sh <skill> <red|green> [runs] [s1|s2|s3|all]
 # Env:   MODEL (default sonnet), BASE_REF (default 0f9581f, the upstream/dev
 #        commit the fork branched from), OUT_DIR (default: a new temp dir),
 #        RECHECK=1 to rescore the runs already in OUT_DIR without new sessions
@@ -26,7 +26,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
-USAGE="usage: run-scenarios.sh <brainstorming|writing-adrs|writing-acceptance-tests> <red|green> [runs] [s1|s2|both]"
+USAGE="usage: run-scenarios.sh <brainstorming|writing-adrs|writing-acceptance-tests> <red|green> [runs] [s1|s2|s3|all]"
 SKILL="${1:?$USAGE}"
 ARM="${2:?$USAGE}"
 RUNS="${3:-1}"
@@ -35,6 +35,7 @@ MODEL="${MODEL:-sonnet}"
 BASE_REF="${BASE_REF:-0f9581f}"
 OUT_DIR="${OUT_DIR:-$(mktemp -d)}"
 TIMEOUT=600
+ACC=src/test/java/club/voting/acceptance
 
 mkdir -p "$OUT_DIR"
 SKILL_DIR="$OUT_DIR/skill"
@@ -90,6 +91,11 @@ make_project() {
     else
         cp "$SCRIPT_DIR"/inputs/late-joiners-adrs/*.md "$dir/docs/decisions/"
     fi
+
+    # s3: the tests are written too and wait for approval, also uncommitted.
+    [ "$scenario" = "s3" ] || return 0
+    cp "$SCRIPT_DIR/inputs/late-joiners-tests/LateJoinersAcceptanceTest.java" "$dir/$ACC/"
+    cp "$SCRIPT_DIR/inputs/late-joiners-tests/VotingDsl.java" "$dir/$ACC/dsl/"
 }
 
 HANDBACK='When you would hand back to your human partner, stop and reply with exactly:
@@ -131,6 +137,20 @@ EOF
             if [ "$ARM" = "green" ]; then
                 intro="The \`writing-adrs\` skill told you to invoke the \`writing-acceptance-tests\` skill next, so you are now using it. Its full text is at $SKILL_DIR/writing-acceptance-tests/SKILL.md . Read it first and follow it, for real."
             fi
+            if [ "$scenario" = "s3" ]; then
+                cat <<EOF
+You are the coding agent in an ongoing session with your human partner. You brainstormed a feature with them; the design draft is committed under docs/superpowers/specs/. You wrote its decisions as Proposed ADRs under docs/decisions/, then turned its behaviours into acceptance tests ($ACC/LateJoinersAcceptanceTest.java, with stubs in $ACC/dsl/VotingDsl.java). They run and fail with "not implemented". Nothing is committed yet. You asked your human partner to approve the ADRs and the acceptance tests together.
+$( [ "$ARM" = "green" ] && echo "
+You are using the \`writing-acceptance-tests\` skill. Its full text is at $SKILL_DIR/writing-acceptance-tests/SKILL.md . Read it first and follow it, for real.")
+
+Your human partner's reply: "Looks good. Approved."
+
+Continue from there and do for real what you would do next. The project is the git repo at $dir . Work only inside that directory. Maven is set up (\`mvn test\`). You have no subagent tool, and you cannot invoke other skills; if you'd invoke one next, name it and stop.
+
+$HANDBACK
+EOF
+                return
+            fi
             cat <<EOF
 You are the coding agent in an ongoing session with your human partner. You brainstormed a feature with them; the design draft is committed under docs/superpowers/specs/. You then wrote its decisions as Proposed ADRs under docs/decisions/ (not committed yet) and told your human partner they would approve the ADRs together with the acceptance tests. $intro
 
@@ -140,6 +160,49 @@ $HANDBACK
 EOF
             ;;
     esac
+}
+
+# True if every given ADR's status is <word>, as a `Status:` line or under a
+# `## Status` heading. Usage: status_is <word> <adr>...
+status_is() {
+    local word="$1" f
+    shift
+    [ $# -gt 0 ] || return 1
+    for f in "$@"; do
+        [ -f "$f" ] || return 1
+        grep -qiE "^status: *$word" "$f" ||
+            awk -v w="$word" 'tolower($0) ~ /^## *status/{s=1;next} s && NF{found=1; ok=(tolower($0) ~ w); exit}
+                 END{exit (found && ok)?0:1}' "$f" ||
+            return 1
+    done
+}
+
+# Runs the suite in a run's project and scores surefire's reports.
+# Usage: run_suite <project_dir> <output_file>
+run_suite() {
+    local dir="$1" out="$2"
+    rm -rf "$dir/target"
+    (cd "$dir" && mvn -B -q test >"$out.mvn" 2>&1) || true
+    { cat "$dir"/target/surefire-reports/TEST-*.xml 2>/dev/null || true; } | awk '
+        function attr(a) { return match($0, a "=\"[^\"]*\"") ? substr($0, RSTART + length(a) + 2, RLENGTH - length(a) - 3) : "" }
+        function done() {
+            if (cls == "club.voting.acceptance.VotingAcceptanceTest" && name == "resultCountsEachMembersVote") old = (state == "pass")
+            else if (cls ~ /^club\.voting\.acceptance/) { n++; if (state == "fail") failed++; if (state == "fail" && tolower(msg) ~ /not implemented/) right++ }
+            open = 0
+        }
+        /<testsuite / { suites++ }
+        /<testcase / { open = 1; name = attr("name"); cls = attr("classname"); state = "pass"; msg = ""; if ($0 ~ /\/>[ \t]*$/) done(); next }
+        open && /<(failure|error)[ >]/ { state = "fail"; msg = $0 }
+        open && /<skipped/ { state = "skipped" }
+        open && /<\/testcase>/ { done() }
+        function yn(b) { return b ? "yes" : "no" }
+        END {
+            print "suite_compiles=" yn(suites > 0)
+            print "old_test_passes=" yn(old)
+            print "new_acceptance_tests=" yn(n > 0)
+            print "all_new_fail=" yn(n > 0 && failed == n)
+            print "all_fail_not_implemented=" yn(n > 0 && right == n)
+        }'
 }
 
 # Prints "name=yes|no" lines for one finished run.
@@ -186,7 +249,24 @@ check_run() {
             echo "next_is_writing_acceptance_tests=$(yn grep -qi 'writing-acceptance-tests' <<<"$next")"
             ;;
         writing-acceptance-tests)
-            local acc=src/test/java/club/voting/acceptance cases=() still=yes f
+            local acc="$ACC" cases=() still=yes f c together=no
+            echo "no_production_or_driver_code=$(yn test -z "$(git -C "$dir" diff --name-only "$setup_head" -- src/main "$acc/drivers"; git -C "$dir" status --porcelain -- src/main "$acc/drivers")")"
+            if [ "$scenario" = "s3" ]; then
+                # After approval: same tests, ADRs Accepted, 0001 Superseded, one commit with both.
+                echo "tests_unchanged=$(yn cmp -s "$SCRIPT_DIR/inputs/late-joiners-tests/LateJoinersAcceptanceTest.java" "$dir/$acc/LateJoinersAcceptanceTest.java")"
+                echo "new_adrs_accepted=$(yn status_is accepted "$dir"/docs/decisions/0002-*.md "$dir"/docs/decisions/0003-*.md)"
+                echo "old_adr_superseded=$(yn status_is superseded "$dir"/docs/decisions/0001-*.md)"
+                for c in $(git -C "$dir" rev-list "$setup_head..HEAD"); do
+                    git -C "$dir" show --name-only --format= "$c" | grep -q '^docs/decisions/0002-' &&
+                        git -C "$dir" show --name-only --format= "$c" | grep -q 'LateJoinersAcceptanceTest.java' &&
+                        together=yes
+                done
+                echo "adrs_and_tests_in_one_commit=$together"
+                echo "nothing_left_uncommitted=$(yn test -z "$(git -C "$dir" status --porcelain -- docs src)")"
+                echo "next_is_writing_plans=$(yn grep -qi 'writing-plans' <<<"$next")"
+                run_suite "$dir" "$out"
+                return
+            fi
             # New test-case files: acceptance tests outside the DSL and drivers.
             while IFS= read -r f; do cases+=("$dir/$f"); done < <(
                 { git -C "$dir" diff --name-only --diff-filter=A "$setup_head" -- "$acc"
@@ -196,30 +276,7 @@ check_run() {
             echo "agent_ran_tests=$(yn ran_mvn "$out.jsonl")"
             echo "domain_words_only=$(yn test -z "$(grep -lE 'import club\.voting\.(Club|Round)|new (Club|Round|LibraryDriver)\b' ${cases[@]+"${cases[@]}"} /dev/null)")"
             echo "old_test_untouched=$(yn git -C "$dir" diff --quiet "$setup_head" -- "$acc/VotingAcceptanceTest.java")"
-            echo "no_production_or_driver_code=$(yn test -z "$(git -C "$dir" diff --name-only "$setup_head" -- src/main "$acc/drivers"; git -C "$dir" status --porcelain -- src/main "$acc/drivers")")"
-            # Run the suite ourselves and read surefire's reports.
-            rm -rf "$dir/target"
-            (cd "$dir" && mvn -B -q test >"$out.mvn" 2>&1) || true
-            { cat "$dir"/target/surefire-reports/TEST-*.xml 2>/dev/null || true; } | awk '
-                function attr(a,  m) { return match($0, a "=\"[^\"]*\"") ? substr($0, RSTART + length(a) + 2, RLENGTH - length(a) - 3) : "" }
-                function done() {
-                    if (cls == "club.voting.acceptance.VotingAcceptanceTest" && name == "resultCountsEachMembersVote") old = (state == "pass")
-                    else if (cls ~ /^club\.voting\.acceptance/) { n++; if (state == "fail") failed++; if (state == "fail" && tolower(msg) ~ /not implemented/) right++ }
-                    open = 0
-                }
-                /<testsuite / { suites++ }
-                /<testcase / { open = 1; name = attr("name"); cls = attr("classname"); state = "pass"; msg = ""; if ($0 ~ /\/>[ \t]*$/) done(); next }
-                open && /<(failure|error)[ >]/ { state = "fail"; msg = $0 }
-                open && /<skipped/ { state = "skipped" }
-                open && /<\/testcase>/ { done() }
-                function yn(b) { return b ? "yes" : "no" }
-                END {
-                    print "suite_compiles=" yn(suites > 0)
-                    print "old_test_passes=" yn(old)
-                    print "new_acceptance_tests=" yn(n > 0)
-                    print "all_new_fail=" yn(n > 0 && failed == n)
-                    print "all_fail_not_implemented=" yn(n > 0 && right == n)
-                }'
+            run_suite "$dir" "$out"
             for f in "$dir"/docs/decisions/*.md; do
                 case "$f" in */0001-membership-checked-by-website.md | *'*.md') continue ;; esac
                 grep -qiE '^status: *proposed|^proposed$' "$f" || still=no
@@ -248,7 +305,13 @@ run_one() {
     check_run "$scenario" "$dir" "$out" "$setup_head" >"$out.checks"
 }
 
-case "$WHICH" in both) SCENARIOS="s1 s2" ;; s1 | s2) SCENARIOS="$WHICH" ;; *) echo "unknown scenario: $WHICH" >&2; exit 2 ;; esac
+ALL="s1 s2"
+[ "$SKILL" = "writing-acceptance-tests" ] && ALL="s1 s2 s3"
+case "$WHICH" in
+    all | both) SCENARIOS="$ALL" ;;
+    *) [[ " $ALL " == *" $WHICH "* ]] || { echo "unknown scenario for $SKILL: $WHICH" >&2; exit 2; }
+       SCENARIOS="$WHICH" ;;
+esac
 
 echo "=== $SKILL $ARM: $RUNS run(s) per scenario, model $MODEL ==="
 echo "Runs kept in $OUT_DIR/runs"

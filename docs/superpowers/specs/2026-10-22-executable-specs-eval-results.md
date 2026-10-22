@@ -201,3 +201,29 @@ What RED showed:
 - **Not covered:** none of these ADRs is cleanly checkable by an
   architecture test, and no scenario reaches the approval itself
   (Accepted, Superseded, commit).
+
+### RED, approval (S3, no skill)
+
+S3 is S2 one step later: the tests are written and fail with "not
+implemented", nothing is committed, and the human partner replies "Looks
+good. Approved."
+
+| | S3 (n=5) |
+|---|---|
+| ADRs 0002, 0003 set to Accepted | 5 |
+| ADRs and tests in one commit, nothing left over | 5 |
+| Approved tests unchanged, still "not implemented" | 5 |
+| Old 0001 marked Superseded | 1 |
+| Draft mentioned (kept, retired or deleted) | 0 |
+| Next skill named | writing-plans ×5 |
+
+What RED showed:
+
+- **Approval itself is natural.** Accept, commit together, plan next.
+- **The reversal is lost.** Four runs left 0001 Accepted next to the ADR
+  that reverses it, three of them on purpose: "ADR 0001 already was". The
+  `Supersedes: 1` line in 0002 wasn't acted on. Two Accepted ADRs now
+  contradict each other, and the next agent to read them can follow
+  either one.
+- **The draft is forgotten.** No run said what happens to it, so it stays
+  under `docs/superpowers/specs/`, looking like a spec.

@@ -22,8 +22,9 @@ bash tests/executable-specs/run-scenarios.sh writing-acceptance-tests red 5
 bash tests/executable-specs/run-scenarios.sh writing-acceptance-tests green 5
 ```
 
-Arguments: skill, arm, runs per scenario (default 1), and `s1`, `s2` or
-`both` (default). All runs start in parallel. Each takes 1–3 minutes.
+Arguments: skill, arm, runs per scenario (default 1), and one scenario
+or `all` (default; `both` works too). All runs start in parallel. Each
+takes 1–5 minutes.
 
 | Env | Default | |
 |---|---|---|
@@ -61,7 +62,10 @@ a Farley-style acceptance layer (`acceptance/dsl`, `acceptance/drivers`).
 
 `writing-acceptance-tests` starts where `writing-adrs` stops: the same
 draft and `0001`, plus the Proposed ADRs in `inputs/proxy-voting-adrs/`
-(s1) or `inputs/late-joiners-adrs/` (s2), uncommitted.
+(s1) or `inputs/late-joiners-adrs/` (s2), uncommitted. Its **s3** is s2
+one step later: the tests in `inputs/late-joiners-tests/` are written and
+fail with "not implemented", and the human partner replies "Looks good.
+Approved."
 
 Each skill's inputs come from the previous skill's GREEN runs, so every
 skill starts from what the one before actually produces.
@@ -83,4 +87,7 @@ test is untouched and still passes; nothing under `src/main` or
 `acceptance/drivers` changed; the script's own `mvn test` compiles, every
 new acceptance test fails, and every failure says "not implemented"; the
 ADRs are still Proposed and nothing is committed (approval hasn't
-happened yet).
+happened yet). For s3: the approved tests are unchanged and still fail
+with "not implemented"; `0002` and `0003` are Accepted and `0001` is
+Superseded; one commit holds both the ADRs and the tests, and nothing is
+left uncommitted; the hand-back names `writing-plans` next.
