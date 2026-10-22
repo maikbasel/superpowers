@@ -40,8 +40,8 @@ subagents and reviews. We change as little as possible.
 - **One spec approval.** The human partner approves ADRs and acceptance
   tests together, then the plan. The draft design doc isn't approved.
 - **Commit is approval.** Approved tests and ADRs are committed. Committed
-  files in `tests/acceptance` and `docs/decisions` are read-only. New files
-  there are allowed.
+  test cases and ADRs are read-only. New files are allowed. The DSL and
+  drivers keep growing: drivers are plan tasks.
 - **Right reason to fail.** Acceptance tests ship with DSL stubs that fail
   with "not implemented". Real drivers are plan tasks, built under unit TDD.
 
@@ -58,7 +58,8 @@ subagents and reviews. We change as little as possible.
    words, with DSL stubs. An architecture test for each ADR that can be
    checked. Run them; they fail for the right reason.
 4. Spec approval: ADRs and tests together. On approval, ADRs become
-   accepted and everything is committed.
+   accepted, the ones they reverse become superseded, and everything is
+   committed. The draft stays: the plan argues from it.
 5. `writing-plans`: the header lists the ADRs and test files. Each task
    names the acceptance tests it advances; the plan says which task turns
    each one green.
@@ -66,7 +67,9 @@ subagents and reviews. We change as little as possible.
    loops inside, acceptance test green.
 7. `subagent-driven-development` and `executing-plans`: read the listed
    ADRs first. Committed tests and ADRs are read-only. Reviewers run the
-   named tests and check the code against the ADRs.
+   named tests and check the code against the ADRs. When the final
+   review is clean, the draft is deleted with the plan's workspace; the
+   ADRs and tests are the record now.
 8. Change path: if a test or ADR looks wrong, stop and ask. Continue only
    after approval.
 9. `using-superpowers`: accepted ADRs are binding.

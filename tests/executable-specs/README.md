@@ -85,7 +85,8 @@ ADR names it under `Supersedes:`.
 domain words only (no `Club`, `Round` or driver); the existing acceptance
 test is untouched and still passes; nothing under `src/main` or
 `acceptance/drivers` changed; the script's own `mvn test` compiles, every
-new acceptance test fails, and every failure says "not implemented"; the
+failing new acceptance test says "not implemented", and a new test that
+already passes is named in the hand-back ("passes already"); the
 ADRs are still Proposed and nothing is committed (approval hasn't
 happened yet). For s3: the approved tests are unchanged and still fail
 with "not implemented"; `0002` and `0003` are Accepted and `0001` is

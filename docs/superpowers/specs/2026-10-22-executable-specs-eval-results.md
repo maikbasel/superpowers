@@ -227,3 +227,42 @@ What RED showed:
   either one.
 - **The draft is forgotten.** No run said what happens to it, so it stays
   under `docs/superpowers/specs/`, looking like a spec.
+
+### GREEN (skill v1)
+
+| | S1 (n=5) | S2 (n=5) | S3 (n=5) |
+|---|---|---|---|
+| Ran `mvn` itself | 5 | 5 | n/a |
+| Test cases in domain words only | 5 | 5 | n/a |
+| Driver or production code changed | 0 | 0 | 0 |
+| New tests in a new file, committed test untouched | 5 | 5 | 5 |
+| Suite compiles | 5 | 5 | 5 |
+| Every failing new test says "not implemented" | 5 | 5 | 5 |
+| New tests passing, and said so | 0 | 1 run, 1 test | 0 |
+| Nothing committed, ADRs Proposed (before approval) | 5 | 5 | n/a |
+| ADRs Accepted, 0001 Superseded by 2, one commit | n/a | n/a | 5 |
+| 0001 changed beyond its status | n/a | n/a | 0 |
+| Draft left in place | n/a | n/a | 5 |
+| Next skill named | writing-plans (after approval) ×5 | ×5 | writing-plans ×5 |
+
+Notes:
+
+- **The red is now the stub, everywhere.** 14–16 S1 tests per run fail
+  on two or three stubs (`memberNamesProxy`, `assertNamingProxyRefused`);
+  S2 on one or two (`assertVoteRefused`, `assertVoteCounted`).
+- **Already-true behaviours are handled three ways**, all within the
+  skill's "tell your human partner": no new test because the committed one
+  covers it (S2 ×2), a refusal step added so it fails (×1), kept as a
+  passing guard and flagged (×1). The scenario check accepts a passing new
+  test when the hand-back says "passes already"; RED runs said that too,
+  so it doesn't separate the arms.
+- **All five S2 runs caught a draft defect**: behaviour 5 ("a refused vote
+  leaves an earlier vote untouched") can't happen under the snapshot rule.
+  Two wrote a weaker test and flagged it, three wrote none and asked. The
+  brainstorming GREEN draft it came from didn't notice. Turning
+  behaviours into tests that must fail is doing the checking the builder
+  check was meant to.
+- **One factual slip:** S2 r4 called the snapshot ADR its own call; the
+  draft says the human partner picked it.
+- **Not tested:** architecture tests (no ADR here states a checkable
+  structure). Every run said so in its hand-back.

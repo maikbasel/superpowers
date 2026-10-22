@@ -183,7 +183,8 @@ run_suite() {
     local dir="$1" out="$2"
     rm -rf "$dir/target"
     (cd "$dir" && mvn -B -q test >"$out.mvn" 2>&1) || true
-    { cat "$dir"/target/surefire-reports/TEST-*.xml 2>/dev/null || true; } | awk '
+    local scores
+    scores=$({ cat "$dir"/target/surefire-reports/TEST-*.xml 2>/dev/null || true; } | awk '
         function attr(a) { return match($0, a "=\"[^\"]*\"") ? substr($0, RSTART + length(a) + 2, RLENGTH - length(a) - 3) : "" }
         function done() {
             if (cls == "club.voting.acceptance.VotingAcceptanceTest" && name == "resultCountsEachMembersVote") old = (state == "pass")
@@ -200,9 +201,16 @@ run_suite() {
             print "suite_compiles=" yn(suites > 0)
             print "old_test_passes=" yn(old)
             print "new_acceptance_tests=" yn(n > 0)
-            print "all_new_fail=" yn(n > 0 && failed == n)
-            print "all_fail_not_implemented=" yn(n > 0 && right == n)
-        }'
+            print "passing=" (n - failed)
+            print "all_fail_not_implemented=" yn(failed > 0 && right == failed)
+        }')
+    grep -v '^passing=' <<<"$scores"
+    # A new test may pass when the behaviour already holds, if the hand-back says so.
+    if grep -q '^passing=0$' <<<"$scores"; then
+        echo "passing_tests_reported=yes"
+    else
+        echo "passing_tests_reported=$(grep -qiE 'pass(es)? (already|today)|already (holds|passes)' "$out" && echo yes || echo no)"
+    fi
 }
 
 # Prints "name=yes|no" lines for one finished run.
