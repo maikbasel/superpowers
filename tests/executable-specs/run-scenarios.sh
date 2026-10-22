@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Test: Do brainstorming and writing-adrs produce executable-spec artifacts?
+# Test: Do brainstorming, writing-adrs and writing-acceptance-tests produce
+# executable-spec artifacts?
 # Framework: RED-GREEN per writing-skills/references/testing-skills-with-subagents.md
 #
 # Each run copies the club-voting fixture into a fresh git repo, stages the
@@ -9,10 +10,11 @@
 #
 # brainstorming  RED:   skill text at $BASE_REF (before the fork's change)
 #                GREEN: skill text in the working tree
-# writing-adrs   RED:   no skill
+# writing-adrs,  RED:   no skill
+# writing-acceptance-tests
 #                GREEN: skill text in the working tree
 #
-# Usage: run-scenarios.sh <brainstorming|writing-adrs> <red|green> [runs] [s1|s2|both]
+# Usage: run-scenarios.sh <skill> <red|green> [runs] [s1|s2|both]
 # Env:   MODEL (default sonnet), BASE_REF (default 0f9581f, the upstream/dev
 #        commit the fork branched from), OUT_DIR (default: a new temp dir),
 #        RECHECK=1 to rescore the runs already in OUT_DIR without new sessions
@@ -24,8 +26,9 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
-SKILL="${1:?usage: run-scenarios.sh <brainstorming|writing-adrs> <red|green> [runs] [s1|s2|both]}"
-ARM="${2:?usage: run-scenarios.sh <brainstorming|writing-adrs> <red|green> [runs] [s1|s2|both]}"
+USAGE="usage: run-scenarios.sh <brainstorming|writing-adrs|writing-acceptance-tests> <red|green> [runs] [s1|s2|both]"
+SKILL="${1:?$USAGE}"
+ARM="${2:?$USAGE}"
 RUNS="${3:-1}"
 WHICH="${4:-both}"
 MODEL="${MODEL:-sonnet}"
@@ -43,11 +46,11 @@ case "$SKILL:$ARM" in
         git -C "$REPO_ROOT" archive "$BASE_REF" skills/brainstorming |
             tar -x -C "$SKILL_DIR/brainstorming" --strip-components=2
         ;;
-    brainstorming:green | writing-adrs:green)
+    brainstorming:green | writing-adrs:green | writing-acceptance-tests:green)
         mkdir -p "$SKILL_DIR"
         cp -R "$REPO_ROOT/skills/$SKILL" "$SKILL_DIR/"
         ;;
-    writing-adrs:red) ;;
+    writing-adrs:red | writing-acceptance-tests:red) ;;
     *) echo "unknown skill/arm: $SKILL $ARM" >&2; exit 2 ;;
 esac
 
@@ -64,7 +67,7 @@ make_project() {
     git -C "$dir" init -q
     commit_all "$dir" "club voting: rounds, votes, tally, acceptance DSL"
 
-    [ "$SKILL" = "writing-adrs" ] || return 0
+    [ "$SKILL" = "brainstorming" ] && return 0
     mkdir -p "$dir/docs/superpowers/specs"
     if [ "$scenario" = "s1" ]; then
         cp "$SCRIPT_DIR/inputs/proxy-voting-draft.md" \
@@ -77,6 +80,15 @@ make_project() {
         cp "$SCRIPT_DIR/inputs/late-joiners-draft.md" \
             "$dir/docs/superpowers/specs/2026-10-22-late-joiners-design.md"
         commit_all "$dir" "docs: late joiners design draft"
+    fi
+
+    # writing-adrs leaves its ADRs Proposed and uncommitted.
+    [ "$SKILL" = "writing-acceptance-tests" ] || return 0
+    if [ "$scenario" = "s1" ]; then
+        mkdir -p "$dir/docs/decisions"
+        cp "$SCRIPT_DIR"/inputs/proxy-voting-adrs/*.md "$dir/docs/decisions/"
+    else
+        cp "$SCRIPT_DIR"/inputs/late-joiners-adrs/*.md "$dir/docs/decisions/"
     fi
 }
 
@@ -110,6 +122,19 @@ EOF
 You are the coding agent in an ongoing session with your human partner. You just finished brainstorming a feature with them. The design draft is committed in the project under docs/superpowers/specs/. $intro
 
 The project is the git repo at $dir . Work only inside that directory. Read what you need. You have no subagent tool, and you cannot invoke other skills; if you'd invoke one next, name it and stop.
+
+$HANDBACK
+EOF
+            ;;
+        writing-acceptance-tests)
+            local intro='The next step in your human partner'"'"'s workflow is: turn the behaviours in the draft into acceptance tests, before any production code is written. Do that now, for real.'
+            if [ "$ARM" = "green" ]; then
+                intro="The \`writing-adrs\` skill told you to invoke the \`writing-acceptance-tests\` skill next, so you are now using it. Its full text is at $SKILL_DIR/writing-acceptance-tests/SKILL.md . Read it first and follow it, for real."
+            fi
+            cat <<EOF
+You are the coding agent in an ongoing session with your human partner. You brainstormed a feature with them; the design draft is committed under docs/superpowers/specs/. You then wrote its decisions as Proposed ADRs under docs/decisions/ (not committed yet) and told your human partner they would approve the ADRs together with the acceptance tests. $intro
+
+The project is the git repo at $dir . Work only inside that directory. Read what you need; Maven is set up (\`mvn test\`). You have no subagent tool, and you cannot invoke other skills; if you'd invoke one next, name it and stop.
 
 $HANDBACK
 EOF
@@ -160,6 +185,48 @@ check_run() {
             fi
             echo "next_is_writing_acceptance_tests=$(yn grep -qi 'writing-acceptance-tests' <<<"$next")"
             ;;
+        writing-acceptance-tests)
+            local acc=src/test/java/club/voting/acceptance cases=() still=yes f
+            # New test-case files: acceptance tests outside the DSL and drivers.
+            while IFS= read -r f; do cases+=("$dir/$f"); done < <(
+                { git -C "$dir" diff --name-only --diff-filter=A "$setup_head" -- "$acc"
+                  git -C "$dir" ls-files --others --exclude-standard -- "$acc"; } |
+                    sort -u | grep -vE "^$acc/(dsl|drivers)/" || true)
+            ran_mvn() { jq -e -s 'any(.[]; .type=="assistant" and any(.message.content[]?; .type=="tool_use" and ((.input.command // "") | test("mvn"))))' "$1" >/dev/null 2>&1; }
+            echo "agent_ran_tests=$(yn ran_mvn "$out.jsonl")"
+            echo "domain_words_only=$(yn test -z "$(grep -lE 'import club\.voting\.(Club|Round)|new (Club|Round|LibraryDriver)\b' ${cases[@]+"${cases[@]}"} /dev/null)")"
+            echo "old_test_untouched=$(yn git -C "$dir" diff --quiet "$setup_head" -- "$acc/VotingAcceptanceTest.java")"
+            echo "no_production_or_driver_code=$(yn test -z "$(git -C "$dir" diff --name-only "$setup_head" -- src/main "$acc/drivers"; git -C "$dir" status --porcelain -- src/main "$acc/drivers")")"
+            # Run the suite ourselves and read surefire's reports.
+            rm -rf "$dir/target"
+            (cd "$dir" && mvn -B -q test >"$out.mvn" 2>&1) || true
+            { cat "$dir"/target/surefire-reports/TEST-*.xml 2>/dev/null || true; } | awk '
+                function attr(a,  m) { return match($0, a "=\"[^\"]*\"") ? substr($0, RSTART + length(a) + 2, RLENGTH - length(a) - 3) : "" }
+                function done() {
+                    if (cls == "club.voting.acceptance.VotingAcceptanceTest" && name == "resultCountsEachMembersVote") old = (state == "pass")
+                    else if (cls ~ /^club\.voting\.acceptance/) { n++; if (state == "fail") failed++; if (state == "fail" && tolower(msg) ~ /not implemented/) right++ }
+                    open = 0
+                }
+                /<testsuite / { suites++ }
+                /<testcase / { open = 1; name = attr("name"); cls = attr("classname"); state = "pass"; msg = ""; if ($0 ~ /\/>[ \t]*$/) done(); next }
+                open && /<(failure|error)[ >]/ { state = "fail"; msg = $0 }
+                open && /<skipped/ { state = "skipped" }
+                open && /<\/testcase>/ { done() }
+                function yn(b) { return b ? "yes" : "no" }
+                END {
+                    print "suite_compiles=" yn(suites > 0)
+                    print "old_test_passes=" yn(old)
+                    print "new_acceptance_tests=" yn(n > 0)
+                    print "all_new_fail=" yn(n > 0 && failed == n)
+                    print "all_fail_not_implemented=" yn(n > 0 && right == n)
+                }'
+            for f in "$dir"/docs/decisions/*.md; do
+                case "$f" in */0001-membership-checked-by-website.md | *'*.md') continue ;; esac
+                grep -qiE '^status: *proposed|^proposed$' "$f" || still=no
+            done
+            echo "adrs_still_proposed=$still"
+            echo "nothing_committed=$(yn test "$(git -C "$dir" rev-parse HEAD)" = "$setup_head")"
+            ;;
     esac
 }
 
@@ -169,9 +236,11 @@ run_one() {
     local dir="$OUT_DIR/runs/$scenario-r$n" out="$OUT_DIR/runs/$scenario-r$n.out"
     if [ -z "${RECHECK:-}" ]; then
         make_project "$scenario" "$dir"
+        # The stream keeps the tool calls; .out keeps the final reply.
         (cd "$dir" && timeout "$TIMEOUT" claude -p "$(prompt_for "$scenario" "$dir")" \
-            --model "$MODEL" --allowed-tools "Read,Write,Edit,Glob,Grep,Bash(git:*)" \
-            >"$out" 2>&1) || echo "(claude exited $?)" >>"$out"
+            --model "$MODEL" --allowed-tools "Read,Write,Edit,Glob,Grep,Bash(git:*),Bash(mvn:*)" \
+            --output-format stream-json --verbose >"$out.jsonl" 2>&1) || echo "(claude exited $?)" >>"$out"
+        jq -r 'select(.type=="result") | .result // empty' "$out.jsonl" >>"$out" 2>/dev/null || true
     fi
     # The last commit by the fixture author is where the agent took over.
     local setup_head

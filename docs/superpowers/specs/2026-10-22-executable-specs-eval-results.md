@@ -150,3 +150,54 @@ Notes:
 - **Borderline:** one S1 run gave "own vote beats proxy vote" its own ADR,
   but used it to flag a contradiction in the draft ("whichever is cast
   first"). Worth watching for over-recording in the real run.
+
+## writing-acceptance-tests
+
+### Scenarios
+
+Starts where writing-adrs stops: the same draft committed, its Proposed
+ADRs (from writing-adrs GREEN runs) uncommitted. S1 proxy voting, 12
+behaviours, 5 ADRs. S2 late joiners, 5 behaviours, 2 ADRs, 0001 still
+Accepted. Rerun with
+`tests/executable-specs/run-scenarios.sh writing-acceptance-tests <arm> 5`.
+
+### RED (no skill)
+
+| | S1 (n=5) | S2 (n=5) |
+|---|---|---|
+| Ran `mvn` itself | 5 | 5 |
+| Test cases in domain words only | 5 | 5 |
+| Production code touched | 0 | 0 |
+| Driver changed | 5 | 5 |
+| Existing, committed acceptance test file edited | 1 | 5 |
+| Suite compiles | 3 | 5 |
+| Every new test fails | 3 | 0 |
+| Every failure says "not implemented" | 2 | 0 |
+| ADRs set to Accepted / anything committed | 0 / 0 | 0 / 0 |
+| Architecture test for an ADR | 0 | 0 |
+| Next skill named | none ×5 (writing-plans "if available" ×1) | none ×5 (test-driven-development ×3) |
+
+What RED showed:
+
+- **The domain layer is already good.** Every run went through the DSL
+  and kept `Club` and `Round` out of the test cases. Coverage too:
+  14–20 tests for S1's 12 behaviours, 3–5 for S2's 5.
+- **Failing for the right reason isn't a goal yet.** S2 wired the driver
+  to today's `Round` and failed on assertions ("vote was not refused"),
+  with 1–2 new tests already passing in every run. Two S1 runs called
+  production methods that don't exist, so nothing compiled ("no test can
+  show a behavioural failure", r2). One S1 run failed in the driver with
+  its own message.
+- **Builder calls land in the driver.** All 10 edited `LibraryDriver`:
+  refusal as an exception, placeholder method names on `Round`. The draft
+  left those to the builder.
+- **The approved test file isn't treated as approved.** All S2 runs and
+  one S1 run added their tests to the committed `VotingAcceptanceTest`.
+- **Approval already holds.** Nothing committed, nothing Accepted, and
+  every hand-back waits for approval of ADRs and tests together. The
+  prompt said so, so this shows the agent keeps a stated rule, not that
+  it would find it.
+- **No route to the plan.** No run names writing-plans as next.
+- **Not covered:** none of these ADRs is cleanly checkable by an
+  architecture test, and no scenario reaches the approval itself
+  (Accepted, Superseded, commit).
