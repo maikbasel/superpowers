@@ -58,3 +58,30 @@ What the baseline showed:
   small, so the builder check ran only twice. We keep sizing unchanged, but
   this means the "small changes get acceptance tests too" rule carries most
   of the load.
+
+### GREEN (draft + Behaviours + gate to writing-adrs)
+
+Same scenarios, prompt and fixture; only the skill text differs.
+
+| | S1 (n=5) | S2 (n=5) |
+|---|---|---|
+| Draft has a Behaviours part | 5 | 5 |
+| Behaviour lines (range) | 11–12 | 4–5 |
+| Agent's own calls listed as behaviours | 5 | 5 |
+| Asks the human partner to approve the draft | 0 | 0 |
+| Product or test code written | 0 | 0 |
+| Next skill named | writing-adrs ×5 | writing-adrs ×5 |
+| Builder check run | 0 | n/a (small) |
+
+What changed:
+
+- **Every rule is now a checkable line.** The 4–8 agent-made rules that
+  RED hid in "My calls" now sit in Behaviours as concrete examples, marked
+  as the agent's call (e.g. "Naming yourself as your proxy is refused.").
+- **The handoff tells the human what they'll approve.** Every message says
+  the ADRs and acceptance tests come next and are what gets approved.
+- **One run (S1 r1) raised a real question** (proxy chains) instead of
+  silently deciding it, and held the handoff until it's answered.
+- **Not fixed, out of scope:** S1 was sized as small in all 5 runs, so the
+  builder check never ran. Sizing is unchanged on purpose; the Behaviours
+  part now carries the rules either way.
