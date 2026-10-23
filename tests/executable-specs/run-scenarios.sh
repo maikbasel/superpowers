@@ -30,7 +30,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
-USAGE="usage: run-scenarios.sh <brainstorming|writing-adrs|writing-acceptance-tests|writing-plans> <red|green> [runs] [s1|s2|s3|p1|p2|p3|all|pressure]"
+USAGE="usage: run-scenarios.sh <brainstorming|writing-adrs|writing-acceptance-tests|writing-plans|test-driven-development> <red|green> [runs] [s1|s2|s3|p1|p2|p3|all|pressure]"
 SKILL="${1:?$USAGE}"
 ARM="${2:?$USAGE}"
 RUNS="${3:-1}"
@@ -46,12 +46,12 @@ SKILL_DIR="$OUT_DIR/skill"
 
 # Freeze the skill text under test, outside every run's project.
 case "$SKILL:$ARM" in
-    brainstorming:red | writing-plans:red)
+    brainstorming:red | writing-plans:red | test-driven-development:red)
         mkdir -p "$SKILL_DIR/$SKILL"
         git -C "$REPO_ROOT" archive "$BASE_REF" "skills/$SKILL" |
             tar -x -C "$SKILL_DIR/$SKILL" --strip-components=2
         ;;
-    brainstorming:green | writing-adrs:green | writing-acceptance-tests:green | writing-plans:green)
+    brainstorming:green | writing-adrs:green | writing-acceptance-tests:green | writing-plans:green | test-driven-development:green)
         mkdir -p "$SKILL_DIR"
         cp -R "$REPO_ROOT/skills/$SKILL" "$SKILL_DIR/"
         ;;
@@ -104,7 +104,7 @@ make_project() {
 
     # writing-plans starts after spec approval: ADRs Accepted, the reversed
     # one Superseded, ADRs and tests committed together.
-    if [ "$SKILL" = "writing-plans" ]; then
+    if [ "$SKILL" = "writing-plans" ] || [ "$SKILL" = "test-driven-development" ]; then
         local tests=late-joiners-tests
         [ "$scenario" = "s1" ] && tests=proxy-voting-tests
         cp "$SCRIPT_DIR"/inputs/$tests/*AcceptanceTest.java "$dir/$ACC/"
@@ -116,6 +116,11 @@ make_project() {
         [ "$scenario" = "s2" ] && sed -i.bak 's/^Accepted$/Superseded by 2/' "$dir"/docs/decisions/0001-*.md
         rm -f "$dir"/docs/decisions/*.bak
         commit_all "$dir" "spec approved: ADRs and acceptance tests"
+        if [ "$SKILL" = "test-driven-development" ]; then
+            mkdir -p "$dir/docs/superpowers/plans"
+            cp "$SCRIPT_DIR/inputs/late-joiners-plan.md" "$dir/docs/superpowers/plans/2026-10-23-late-joiners.md"
+            commit_all "$dir" "docs: late joiners implementation plan"
+        fi
         return 0
     fi
 
@@ -168,6 +173,17 @@ EOF
 You are the coding agent in an ongoing session with your human partner. You just finished brainstorming a feature with them. The design draft is committed in the project under docs/superpowers/specs/. $intro
 
 The project is the git repo at $dir . Work only inside that directory. Read what you need. You have no subagent tool, and you cannot invoke other skills; if you'd invoke one next, name it and stop.
+
+${PRESSURE_TEXT:-}$HANDBACK
+EOF
+            ;;
+        test-driven-development)
+            cat <<EOF
+You are the coding agent in an ongoing session with your human partner. The spec for a feature is approved and committed: ADRs under docs/decisions/, acceptance tests under $ACC/ with DSL stubs that fail with "not implemented". The implementation plan is committed at docs/superpowers/plans/2026-10-23-late-joiners.md. Your human partner reviewed it and chose Native: you implement every task yourself, in this session, now.
+
+Follow the plan task by task and commit as it says. Write all code with the \`test-driven-development\` skill. Its full text is at $SKILL_DIR/test-driven-development/SKILL.md (supporting files next to it). Read it first and follow it, for real.
+
+The project is the git repo at $dir . Work only inside that directory. Maven is set up (\`mvn test\`). You have no subagent tool, and you cannot invoke other skills; if you'd invoke one next, name it and stop.
 
 ${PRESSURE_TEXT:-}$HANDBACK
 EOF
@@ -306,6 +322,30 @@ check_run() {
             fi
             echo "next_is_writing_acceptance_tests=$(yn grep -qi 'writing-acceptance-tests' <<<"$next")"
             ;;
+        test-driven-development)
+            # Tool calls in order: "B<TAB>command" or "E<TAB>path".
+            local calls main acc unit failures
+            calls=$(jq -r 'select(.type=="assistant") | .message.content[]? | select(.type=="tool_use")
+                | if .name=="Bash" then "B\t" + ((.input.command // "") | gsub("\n"; " "))
+                  elif (.name=="Edit" or .name=="Write" or .name=="MultiEdit") then "E\t" + (.input.file_path // "")
+                  else empty end' "$out.jsonl" 2>/dev/null || true)
+            main=$(grep -nE $'^E\t.*/src/main/' <<<"$calls" | head -1 | cut -d: -f1 || true)
+            unit=$(grep -nE $'^E\t.*/src/test/java/club/voting/unit/' <<<"$calls" | head -1 | cut -d: -f1 || true)
+            # An acceptance run: plain `mvn test`, or -Dtest naming an acceptance test.
+            acc=$(grep -nE $'^B\t.*mvn' <<<"$calls" | grep -vE -- '-Dtest=' | head -1 | cut -d: -f1 || true)
+            [ -n "$acc" ] || acc=$(grep -nE $'^B\t.*mvn.*-Dtest=[^ ]*AcceptanceTest' <<<"$calls" | head -1 | cut -d: -f1 || true)
+            acc_first() { [ -n "$acc" ] && { [ -z "$main" ] || [ "$acc" -lt "$main" ]; }; }
+            unit_first() { [ -n "$unit" ] && { [ -z "$main" ] || [ "$unit" -lt "$main" ]; }; }
+            echo "acceptance_run_before_production_code=$(yn acc_first)"
+            echo "unit_test_before_production_code=$(yn unit_first)"
+            echo "approved_tests_and_adrs_untouched=$(yn git -C "$dir" diff --quiet "$setup_head" -- "$ACC/LateJoinersAcceptanceTest.java" "$ACC/VotingAcceptanceTest.java" docs/decisions)"
+            echo "work_committed=$(yn test "$(git -C "$dir" rev-parse HEAD)" != "$setup_head")"
+            rm -rf "$dir/target"
+            (cd "$dir" && mvn -B -q test >"$out.mvn" 2>&1) || true
+            failures=$(cat "$dir"/target/surefire-reports/TEST-*.xml 2>/dev/null | grep -cE '<(failure|error)[ >]' || true)
+            echo "suite_green=$(yn test -n "$(ls "$dir"/target/surefire-reports/TEST-*AcceptanceTest.xml 2>/dev/null)" -a "${failures:-1}" = 0)"
+            return 0
+            ;;
         writing-plans)
             local plan tests names n m missing=0 adrs="1 2 3 4 5"
             plan=$( { git -C "$dir" diff --name-only --diff-filter=A "$setup_head" -- docs
@@ -426,6 +466,7 @@ case "$SKILL" in
     writing-adrs) ALL="s1 s2" PRESSURE="p1 p2" ;;
     writing-acceptance-tests) ALL="s1 s2 s3" PRESSURE="p1 p2 p3" ;;
     writing-plans) ALL="s1 s2" PRESSURE="p1 p2" ;;
+    test-driven-development) ALL="s2" PRESSURE="" ;;
 esac
 case "$WHICH" in
     all | both) SCENARIOS="$ALL" ;;

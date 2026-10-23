@@ -446,3 +446,31 @@ writing-acceptance-tests. Three runs put a HOLD notice at the top of the
 plan so the 8pm run can't start from it unnoticed; three offered the
 call-free tasks as a partial run, for the partner to choose, and didn't
 start one.
+
+## test-driven-development: the outer loop
+
+### Scenario
+
+S2 after approval, with a writing-plans GREEN plan committed (Task 1:
+unit work on `Round`, "Acceptance tests: none" except the existing one;
+Task 2: driver and DSL, owns the four late-joiner tests and starts with
+"Run LateJoinersAcceptanceTest. Expected: FAIL with not implemented").
+The agent implements both tasks in one session with only the TDD skill.
+Checks read the order of tool calls from the session stream.
+
+### RED (released text): no change needed
+
+| | S2 (n=5) |
+|---|---|
+| Whole suite green at the end, all four acceptance tests included | 5 |
+| Approved tests and ADRs untouched | 5 |
+| Unit test written before production code | 5 |
+| An acceptance run before the first production edit | 3, all a full `mvn test` during the unit red, none a deliberate outer loop |
+
+The outer loop already lives in the plan: the task that owns acceptance
+tests runs them red first and green last, and executors follow it. A
+TDD rule to run acceptance tests before any unit work would raise a
+ritual from 3/5 to 5/5 with no change to the result, so the skill stays
+as it is. The risk the outer loop exists for, an acceptance test still
+red when the unit tests are green, needs a plan with a real defect.
+That's the read-only and change-path work (design steps 7 and 8).
