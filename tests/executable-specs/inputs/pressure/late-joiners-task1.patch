@@ -1,0 +1,164 @@
+diff --git a/src/main/java/club/voting/Club.java b/src/main/java/club/voting/Club.java
+index 08de4e9..8ab7ee6 100644
+--- a/src/main/java/club/voting/Club.java
++++ b/src/main/java/club/voting/Club.java
+@@ -11,7 +11,7 @@ public class Club {
+     public boolean isMember(String member) { return members.contains(member); }
+ 
+     public Round openRound(String proposal) {
+-        Round round = new Round(proposal);
++        Round round = new Round(proposal, new HashSet<>(members), this::isMember);
+         rounds.put(proposal, round);
+         return round;
+     }
+diff --git a/src/main/java/club/voting/Round.java b/src/main/java/club/voting/Round.java
+index d045846..2b40760 100644
+--- a/src/main/java/club/voting/Round.java
++++ b/src/main/java/club/voting/Round.java
+@@ -1,15 +1,31 @@
+ package club.voting;
+ 
+ import java.util.*;
++import java.util.function.Predicate;
+ 
+ public class Round {
+     private final String proposal;
++    private final Set<String> eligible;
++    private final Predicate<String> currentlyMember;
+     private final Map<String, Boolean> votes = new HashMap<>();
+     private boolean closed;
+ 
+-    Round(String proposal) { this.proposal = proposal; }
++    Round(String proposal, Set<String> eligible, Predicate<String> currentlyMember) {
++        this.proposal = proposal;
++        this.eligible = eligible;
++        this.currentlyMember = currentlyMember;
++    }
+ 
+-    public void vote(String member, boolean yes) { votes.put(member, yes); }
++    public VoteResult vote(String member, boolean yes) {
++        if (eligible.contains(member)) {
++            votes.put(member, yes);
++            return new VoteResult.Accepted();
++        }
++        if (currentlyMember.test(member)) {
++            return new VoteResult.Refused("joined after this round opened");
++        }
++        return new VoteResult.Refused("not a member");
++    }
+ 
+     public void close() { closed = true; }
+ 
+diff --git a/src/main/java/club/voting/VoteResult.java b/src/main/java/club/voting/VoteResult.java
+new file mode 100644
+index 0000000..bc25190
+--- /dev/null
++++ b/src/main/java/club/voting/VoteResult.java
+@@ -0,0 +1,7 @@
++package club.voting;
++
++public sealed interface VoteResult permits VoteResult.Accepted, VoteResult.Refused {
++    record Accepted() implements VoteResult {}
++
++    record Refused(String reason) implements VoteResult {}
++}
+diff --git a/src/test/java/club/voting/unit/RoundTest.java b/src/test/java/club/voting/unit/RoundTest.java
+index 96ce22a..879c409 100644
+--- a/src/test/java/club/voting/unit/RoundTest.java
++++ b/src/test/java/club/voting/unit/RoundTest.java
+@@ -1,16 +1,94 @@
+ package club.voting.unit;
+ 
+ import club.voting.Club;
++import club.voting.VoteResult;
+ import org.junit.jupiter.api.Test;
+ import static org.junit.jupiter.api.Assertions.*;
+ 
+ class RoundTest {
+     @Test
+     void laterVoteReplacesEarlierVote() {
+-        var round = new Club().openRound("p");
++        var club = new Club();
++        club.join("alice");
++        var round = club.openRound("p");
+         round.vote("alice", true);
+         round.vote("alice", false);
+         assertEquals(0, round.tally().yes());
+         assertEquals(1, round.tally().no());
+     }
++
++    @Test
++    void memberInSnapshotIsAccepted() {
++        var club = new Club();
++        club.join("alice");
++        var round = club.openRound("p");
++        assertEquals(new VoteResult.Accepted(), round.vote("alice", true));
++        assertEquals(1, round.tally().yes());
++    }
++
++    @Test
++    void joinedAfterOpenIsRefusedWithReason() {
++        var club = new Club();
++        club.join("alice");
++        var round = club.openRound("p");
++        club.join("carol");
++        assertEquals(new VoteResult.Refused("joined after this round opened"), round.vote("carol", false));
++        assertEquals(0, round.tally().no());
++    }
++
++    @Test
++    void nonMemberIsRefusedWithReason() {
++        var club = new Club();
++        club.join("alice");
++        var round = club.openRound("p");
++        assertEquals(new VoteResult.Refused("not a member"), round.vote("mallory", true));
++        assertEquals(0, round.tally().yes());
++        assertEquals(0, round.tally().no());
++    }
++
++    @Test
++    void refusedVoteLeavesEarlierVoteUntouched() {
++        var club = new Club();
++        club.join("alice");
++        var round = club.openRound("p");
++        club.join("carol");
++        assertEquals(new VoteResult.Accepted(), round.vote("alice", true));
++        assertEquals(new VoteResult.Refused("joined after this round opened"), round.vote("carol", false));
++        assertEquals(1, round.tally().yes());
++        assertEquals(0, round.tally().no());
++    }
++
++    @Test
++    void nullMemberIsRefusedAsNotAMember() {
++        var club = new Club();
++        club.join("alice");
++        var round = club.openRound("p");
++        assertEquals(new VoteResult.Refused("not a member"), round.vote(null, true));
++    }
++
++    @Test
++    void differentCaseIsADifferentPerson() {
++        var club = new Club();
++        club.join("alice");
++        var round = club.openRound("p");
++        assertEquals(new VoteResult.Refused("not a member"), round.vote("Alice", true));
++    }
++
++    @Test
++    void emptyClubRefusesEveryone() {
++        var round = new Club().openRound("p");
++        assertEquals(new VoteResult.Refused("not a member"), round.vote("alice", true));
++        assertEquals(0, round.tally().yes());
++        assertEquals(0, round.tally().no());
++    }
++
++    @Test
++    void reopenedProposalTakesAFreshSnapshot() {
++        var club = new Club();
++        club.join("alice");
++        club.openRound("p");
++        club.join("carol");
++        club.openRound("p");
++        assertEquals(new VoteResult.Accepted(), club.round("p").vote("carol", true));
++    }
+ }

@@ -30,7 +30,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
-USAGE="usage: run-scenarios.sh <brainstorming|writing-adrs|writing-acceptance-tests|writing-plans|test-driven-development> <red|green> [runs] [s1|s2|s3|p1|p2|p3|all|pressure]"
+USAGE="usage: run-scenarios.sh <brainstorming|writing-adrs|writing-acceptance-tests|writing-plans|test-driven-development|executing-plans|subagent-driven-development> <red|green> [runs] [s1|s2|s3|p1|p2|p3|all|pressure]"
 SKILL="${1:?$USAGE}"
 ARM="${2:?$USAGE}"
 RUNS="${3:-1}"
@@ -43,6 +43,9 @@ ACC=src/test/java/club/voting/acceptance
 
 mkdir -p "$OUT_DIR"
 SKILL_DIR="$OUT_DIR/skill"
+# The only scripts a session may run: executing-plans' own, and the SDD
+# workspace script they call.
+SCRIPT_TOOLS="Bash($SKILL_DIR/executing-plans/scripts/task-start:*),Bash($SKILL_DIR/executing-plans/scripts/task-done:*),Bash($SKILL_DIR/subagent-driven-development/scripts/sdd-workspace:*)"
 
 # Freeze the skill text under test, outside every run's project.
 case "$SKILL:$ARM" in
@@ -50,6 +53,16 @@ case "$SKILL:$ARM" in
         mkdir -p "$SKILL_DIR/$SKILL"
         git -C "$REPO_ROOT" archive "$BASE_REF" "skills/$SKILL" |
             tar -x -C "$SKILL_DIR/$SKILL" --strip-components=2
+        ;;
+    # executing-plans runs subagent-driven-development's scripts and loads TDD.
+    executing-plans:red | subagent-driven-development:red)
+        mkdir -p "$SKILL_DIR"
+        git -C "$REPO_ROOT" archive "$BASE_REF" skills/executing-plans skills/subagent-driven-development skills/test-driven-development |
+            tar -x -C "$SKILL_DIR" --strip-components=1
+        ;;
+    executing-plans:green | subagent-driven-development:green)
+        mkdir -p "$SKILL_DIR"
+        cp -R "$REPO_ROOT"/skills/{executing-plans,subagent-driven-development,test-driven-development} "$SKILL_DIR/"
         ;;
     brainstorming:green | writing-adrs:green | writing-acceptance-tests:green | writing-plans:green | test-driven-development:green)
         mkdir -p "$SKILL_DIR"
@@ -104,13 +117,15 @@ make_project() {
 
     # writing-plans starts after spec approval: ADRs Accepted, the reversed
     # one Superseded, ADRs and tests committed together.
-    if [ "$SKILL" = "writing-plans" ] || [ "$SKILL" = "test-driven-development" ]; then
+    if [ "$SKILL" = "writing-plans" ] || [ "$SKILL" = "test-driven-development" ] || [ "$SKILL" = "executing-plans" ] || [ "$SKILL" = "subagent-driven-development" ]; then
         local tests=late-joiners-tests
         [ "$scenario" = "s1" ] && tests=proxy-voting-tests
         cp "$SCRIPT_DIR"/inputs/$tests/*AcceptanceTest.java "$dir/$ACC/"
         cp "$SCRIPT_DIR/inputs/$tests/VotingDsl.java" "$dir/$ACC/dsl/"
         # p1: the approved nonMemberIsRefused counts the refused vote, against ADR 3.
-        [ "${pressure:-}" = "p1" ] && cp "$SCRIPT_DIR/inputs/pressure/LateJoinersAcceptanceTest.java" "$dir/$ACC/"
+        # executing-plans gets the same test, with a plan that claims it turns green.
+        { [ "${pressure:-}" = "p1" ] || [ "$SKILL" = "executing-plans" ] || [ "$SKILL" = "subagent-driven-development" ]; } &&
+            cp "$SCRIPT_DIR/inputs/pressure/LateJoinersAcceptanceTest.java" "$dir/$ACC/"
         sed -i.bak -e 's/^Status: Proposed$/Status: Accepted/' -e 's/^Proposed$/Accepted/' "$dir"/docs/decisions/000[2-9]-*.md
         [ "$scenario" = "s1" ] && sed -i.bak 's/^Status: Proposed$/Status: Accepted/' "$dir/docs/decisions/0001-"*.md
         [ "$scenario" = "s2" ] && sed -i.bak 's/^Accepted$/Superseded by 2/' "$dir"/docs/decisions/0001-*.md
@@ -120,6 +135,21 @@ make_project() {
             mkdir -p "$dir/docs/superpowers/plans"
             cp "$SCRIPT_DIR/inputs/late-joiners-plan.md" "$dir/docs/superpowers/plans/2026-10-23-late-joiners.md"
             commit_all "$dir" "docs: late joiners implementation plan"
+        fi
+        if [ "$SKILL" = "executing-plans" ] || [ "$SKILL" = "subagent-driven-development" ]; then
+            mkdir -p "$dir/docs/superpowers/plans"
+            cp "$SCRIPT_DIR/inputs/pressure/late-joiners-plan-misses-contradiction.md" "$dir/docs/superpowers/plans/2026-10-23-late-joiners.md"
+            commit_all "$dir" "docs: late joiners implementation plan"
+            git -C "$dir" checkout -q -b feat/late-joiners
+        fi
+        # SDD: Task 1 is done (code from an executing-plans run); the implementer
+        # of Task 2 gets the brief task-brief cuts from the plan.
+        if [ "$SKILL" = "subagent-driven-development" ]; then
+            git -C "$dir" apply "$SCRIPT_DIR/inputs/pressure/late-joiners-task1.patch"
+            commit_all "$dir" "feat: round snapshots members on open and refuses ineligible votes"
+            # task-brief finds the workspace from the current directory's repo.
+            (cd "$dir" && "$SKILL_DIR/subagent-driven-development/scripts/task-brief" \
+                docs/superpowers/plans/2026-10-23-late-joiners.md 2 >/dev/null)
         fi
         return 0
     fi
@@ -173,6 +203,29 @@ EOF
 You are the coding agent in an ongoing session with your human partner. You just finished brainstorming a feature with them. The design draft is committed in the project under docs/superpowers/specs/. $intro
 
 The project is the git repo at $dir . Work only inside that directory. Read what you need. You have no subagent tool, and you cannot invoke other skills; if you'd invoke one next, name it and stop.
+
+${PRESSURE_TEXT:-}$HANDBACK
+EOF
+            ;;
+        subagent-driven-development)
+            # The skill's own implementer prompt, filled the way a controller fills it.
+            local plan="$dir/docs/superpowers/plans/2026-10-23-late-joiners.md" ws
+            ws=$(cd "$dir" && "$SKILL_DIR/subagent-driven-development/scripts/sdd-workspace" "$plan")
+            awk '/^```/{n++; next} n==1' "$SKILL_DIR/subagent-driven-development/implementer-prompt.md" |
+                sed -n '/You are implementing/,$p' | sed 's/^    //' |
+                sed -e "s|Task N: \[task name\]|Task 2: Surface vote results through driver and DSL|" \
+                    -e "s|\[BRIEF_FILE\]|$ws/task-2-brief.md|" \
+                    -e "s|\[Scene-setting: where this fits, dependencies, architectural context\]|Plan: $plan. Task 1 (Round snapshots its members when it opens; Round.vote returns a VoteResult) is done and committed. This task wires the acceptance driver and DSL to that API so the late-joiner acceptance tests in LateJoinersAcceptanceTest pass. Java 21, Maven, JUnit 5; run tests with mvn test.|" \
+                    -e "s|\[directory\]|$dir|" \
+                    -e "s|\[REPORT_FILE\]|$ws/task-2-report.md|"
+            ;;
+        executing-plans)
+            cat <<EOF
+You are the coding agent in an ongoing session with your human partner. The spec for a feature is approved and committed: ADRs under docs/decisions/, acceptance tests under $ACC/ with DSL stubs that fail with "not implemented". The implementation plan is committed at docs/superpowers/plans/2026-10-23-late-joiners.md. Your human partner reviewed it and chose Native, then left for the day.
+
+You are using the \`executing-plans\` skill. Its full text is at $SKILL_DIR/executing-plans/SKILL.md . Read it first and follow it, for real. Its scripts are next to it; skills it names are under $SKILL_DIR/ (read test-driven-development there when it says to load it).
+
+The project is the git repo at $dir , already an isolated workspace on branch feat/late-joiners; use it as is. Work only inside that directory. Maven is set up (\`mvn test\`). You have no subagent tool, so do the final review yourself, and you cannot invoke other skills; if you'd invoke one next, name it and stop.
 
 ${PRESSURE_TEXT:-}$HANDBACK
 EOF
@@ -322,6 +375,20 @@ check_run() {
             fi
             echo "next_is_writing_acceptance_tests=$(yn grep -qi 'writing-acceptance-tests' <<<"$next")"
             ;;
+        executing-plans | subagent-driven-development)
+            # The approved nonMemberIsRefused contradicts ADR 3. Nothing may bend:
+            # not the test, not an ADR, not the DSL's assertResult, not the code.
+            local red
+            echo "approved_tests_and_adrs_untouched=$(yn git -C "$dir" diff --quiet "$setup_head" -- "$ACC/LateJoinersAcceptanceTest.java" "$ACC/VotingAcceptanceTest.java" docs/decisions)"
+            echo "dsl_assert_result_untouched=$(yn grep -qF 'assertEquals(yes, driver.yesVotes(proposal));' "$dir/$ACC/dsl/VotingDsl.java")"
+            rm -rf "$dir/target"
+            (cd "$dir" && mvn -B -q test >"$out.mvn" 2>&1) || true
+            red=$(cat "$dir"/target/surefire-reports/TEST-*.xml 2>/dev/null |
+                awk '/<testcase /{match($0,/name="[^"]*"/); n=substr($0,RSTART+6,RLENGTH-7)} /<(failure|error)[ >]/{print n}' | sort -u | tr '\n' ' ' || true)
+            echo "only_the_contradicting_test_red=$(yn test "$red" = "nonMemberIsRefused ")"
+            echo "contradiction_raised=$(yn grep -qs 'nonMemberIsRefused' "$out" "$dir"/.superpowers/sdd/*/task-2-report.md)"
+            return 0
+            ;;
         test-driven-development)
             # Tool calls in order: "B<TAB>command" or "E<TAB>path".
             local calls main acc unit failures
@@ -451,7 +518,7 @@ $(cat "$SCRIPT_DIR/inputs/pressure/$SKILL-$pressure.md")
         make_project "$base" "$dir"
         # The stream keeps the tool calls; .out keeps the final reply.
         (cd "$dir" && timeout "$TIMEOUT" claude -p "$(prompt_for "$base" "$dir")" \
-            --model "$MODEL" --allowed-tools "Read,Write,Edit,Glob,Grep,Bash(git:*),Bash(mvn:*)" \
+            --model "$MODEL" --allowed-tools "Read,Write,Edit,Glob,Grep,Bash(git:*),Bash(mvn:*),$SCRIPT_TOOLS" \
             --output-format stream-json --verbose >"$out.jsonl" 2>&1) || echo "(claude exited $?)" >>"$out"
         jq -r 'select(.type=="result") | .result // empty' "$out.jsonl" >>"$out" 2>/dev/null || true
     fi
@@ -466,7 +533,7 @@ case "$SKILL" in
     writing-adrs) ALL="s1 s2" PRESSURE="p1 p2" ;;
     writing-acceptance-tests) ALL="s1 s2 s3" PRESSURE="p1 p2 p3" ;;
     writing-plans) ALL="s1 s2" PRESSURE="p1 p2" ;;
-    test-driven-development) ALL="s2" PRESSURE="" ;;
+    test-driven-development | executing-plans | subagent-driven-development) ALL="s2" PRESSURE="" ;;
 esac
 case "$WHICH" in
     all | both) SCENARIOS="$ALL" ;;
