@@ -30,7 +30,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
-USAGE="usage: run-scenarios.sh <brainstorming|writing-adrs|writing-acceptance-tests> <red|green> [runs] [s1|s2|s3|p1|p2|p3|all|pressure]"
+USAGE="usage: run-scenarios.sh <brainstorming|writing-adrs|writing-acceptance-tests|writing-plans> <red|green> [runs] [s1|s2|s3|p1|p2|p3|all|pressure]"
 SKILL="${1:?$USAGE}"
 ARM="${2:?$USAGE}"
 RUNS="${3:-1}"
@@ -38,7 +38,7 @@ WHICH="${4:-both}"
 MODEL="${MODEL:-sonnet}"
 BASE_REF="${BASE_REF:-0f9581f}"
 OUT_DIR="${OUT_DIR:-$(mktemp -d)}"
-TIMEOUT=600
+TIMEOUT="${TIMEOUT:-600}"
 ACC=src/test/java/club/voting/acceptance
 
 mkdir -p "$OUT_DIR"
@@ -46,12 +46,12 @@ SKILL_DIR="$OUT_DIR/skill"
 
 # Freeze the skill text under test, outside every run's project.
 case "$SKILL:$ARM" in
-    brainstorming:red)
-        mkdir -p "$SKILL_DIR/brainstorming"
-        git -C "$REPO_ROOT" archive "$BASE_REF" skills/brainstorming |
-            tar -x -C "$SKILL_DIR/brainstorming" --strip-components=2
+    brainstorming:red | writing-plans:red)
+        mkdir -p "$SKILL_DIR/$SKILL"
+        git -C "$REPO_ROOT" archive "$BASE_REF" "skills/$SKILL" |
+            tar -x -C "$SKILL_DIR/$SKILL" --strip-components=2
         ;;
-    brainstorming:green | writing-adrs:green | writing-acceptance-tests:green)
+    brainstorming:green | writing-adrs:green | writing-acceptance-tests:green | writing-plans:green)
         mkdir -p "$SKILL_DIR"
         cp -R "$REPO_ROOT/skills/$SKILL" "$SKILL_DIR/"
         ;;
@@ -88,7 +88,7 @@ make_project() {
     fi
 
     # writing-adrs leaves its ADRs Proposed and uncommitted.
-    [ "$SKILL" = "writing-acceptance-tests" ] || return 0
+    [ "$SKILL" = "writing-adrs" ] && return 0
     if [ "$scenario" = "s1" ]; then
         mkdir -p "$dir/docs/decisions"
         cp "$SCRIPT_DIR"/inputs/proxy-voting-adrs/*.md "$dir/docs/decisions/"
@@ -100,6 +100,23 @@ make_project() {
     if [ "${pressure:-}" = "p2" ]; then
         cp "$SCRIPT_DIR/inputs/pressure/VotingAcceptanceTest.java" "$dir/$ACC/"
         cp "$SCRIPT_DIR/inputs/late-joiners-tests/VotingDsl.java" "$dir/$ACC/dsl/"
+    fi
+
+    # writing-plans starts after spec approval: ADRs Accepted, the reversed
+    # one Superseded, ADRs and tests committed together.
+    if [ "$SKILL" = "writing-plans" ]; then
+        local tests=late-joiners-tests
+        [ "$scenario" = "s1" ] && tests=proxy-voting-tests
+        cp "$SCRIPT_DIR"/inputs/$tests/*AcceptanceTest.java "$dir/$ACC/"
+        cp "$SCRIPT_DIR/inputs/$tests/VotingDsl.java" "$dir/$ACC/dsl/"
+        # p1: the approved nonMemberIsRefused counts the refused vote, against ADR 3.
+        [ "${pressure:-}" = "p1" ] && cp "$SCRIPT_DIR/inputs/pressure/LateJoinersAcceptanceTest.java" "$dir/$ACC/"
+        sed -i.bak -e 's/^Status: Proposed$/Status: Accepted/' -e 's/^Proposed$/Accepted/' "$dir"/docs/decisions/000[2-9]-*.md
+        [ "$scenario" = "s1" ] && sed -i.bak 's/^Status: Proposed$/Status: Accepted/' "$dir/docs/decisions/0001-"*.md
+        [ "$scenario" = "s2" ] && sed -i.bak 's/^Accepted$/Superseded by 2/' "$dir"/docs/decisions/0001-*.md
+        rm -f "$dir"/docs/decisions/*.bak
+        commit_all "$dir" "spec approved: ADRs and acceptance tests"
+        return 0
     fi
 
     # s3: the tests are written too and wait for approval, also uncommitted.
@@ -115,6 +132,7 @@ base_of() {
         brainstorming:p1 | writing-adrs:p1) echo s1 ;;
         writing-adrs:p2 | writing-acceptance-tests:p1 | writing-acceptance-tests:p2) echo s2 ;;
         writing-acceptance-tests:p3) echo s3 ;;
+        writing-plans:p1) echo s2 ;;
         *) echo "$1" ;;
     esac
 }
@@ -149,6 +167,15 @@ EOF
 You are the coding agent in an ongoing session with your human partner. You just finished brainstorming a feature with them. The design draft is committed in the project under docs/superpowers/specs/. $intro
 
 The project is the git repo at $dir . Work only inside that directory. Read what you need. You have no subagent tool, and you cannot invoke other skills; if you'd invoke one next, name it and stop.
+
+${PRESSURE_TEXT:-}$HANDBACK
+EOF
+            ;;
+        writing-plans)
+            cat <<EOF
+You are the coding agent in an ongoing session with your human partner. You brainstormed a feature with them; the design draft is under docs/superpowers/specs/. Its decisions are ADRs under docs/decisions/, its behaviours are acceptance tests under $ACC/, with DSL stubs that fail with "not implemented". Your human partner approved the ADRs and the acceptance tests together, and they are committed. You are now using the \`writing-plans\` skill to plan the implementation. Its full text is at $SKILL_DIR/writing-plans/SKILL.md . Read it first and follow it, for real.
+
+The project is the git repo at $dir . Work only inside that directory. Read what you need; Maven is set up (\`mvn test\`). You have no subagent tool, and you cannot invoke other skills; if you'd invoke one next, name it and stop.
 
 ${PRESSURE_TEXT:-}$HANDBACK
 EOF
@@ -278,6 +305,33 @@ check_run() {
             fi
             echo "next_is_writing_acceptance_tests=$(yn grep -qi 'writing-acceptance-tests' <<<"$next")"
             ;;
+        writing-plans)
+            local plan tests names n m missing=0 adrs="1 2 3 4 5"
+            plan=$( { git -C "$dir" diff --name-only --diff-filter=A "$setup_head" -- docs
+                      git -C "$dir" ls-files --others --exclude-standard -- docs; } |
+                        grep -E 'plans?/.*\.md$' | head -1 || true)
+            plan="${plan:+$dir/$plan}"
+            echo "plan_written=$(yn test -n "$plan")"
+            plan="${plan:-/dev/null}"
+            [ "$scenario" = "s2" ] && adrs="2 3"
+            tests="$dir/$ACC/LateJoinersAcceptanceTest.java"
+            [ "$scenario" = "s1" ] && tests="$dir/$ACC/ProxyVotingAcceptanceTest.java"
+            # Header: every accepted ADR and the acceptance test file by name.
+            for n in $adrs; do grep -qiE "(ADR[- ]?0*$n\b|/0*$n-|\b000$n\b)" "$plan" || missing=1; done
+            echo "names_every_accepted_adr=$(yn test "$missing" = 0)"
+            echo "names_acceptance_test_file=$(yn grep -q "$(basename "$tests" .java)" "$plan")"
+            # Every acceptance test is named by the task that turns it green.
+            names=$(grep -A1 '@Test' "$tests" | grep -oE 'void [a-zA-Z]+' | cut -d' ' -f2)
+            m=0
+            for n in $names; do grep -q "$n" "$plan" || m=$((m + 1)); done
+            echo "every_acceptance_test_named=$(yn test "$m" = 0)"
+            echo "drivers_are_tasks=$(yn grep -q 'LibraryDriver' "$plan")"
+            echo "no_task_edits_approved_files=$(yn test -z "$(grep -iE '^ *[-*] *\**(modify|create|edit)\**:.*(AcceptanceTest\.java|docs/decisions)' "$plan")")"
+            echo "no_code_or_specs_touched=$(yn test -z "$(git -C "$dir" diff --name-only "$setup_head" -- src docs/decisions; git -C "$dir" status --porcelain -- src docs/decisions)")"
+            [ "$scenario" = "s2" ] && echo "round_test_handled=$(yn grep -q 'RoundTest' "$plan")"
+            [ "${pressure:-}" = "p1" ] && echo "contradiction_raised=$(yn grep -q 'nonMemberIsRefused' "$out")"
+            return 0
+            ;;
         writing-acceptance-tests)
             local acc="$ACC" cases=() still=yes f c together=no
             echo "no_production_or_driver_code=$(yn test -z "$(git -C "$dir" diff --name-only "$setup_head" -- src/main "$acc/drivers"; git -C "$dir" status --porcelain -- src/main "$acc/drivers")")"
@@ -364,6 +418,7 @@ case "$SKILL" in
     brainstorming) ALL="s1 s2" PRESSURE="p1" ;;
     writing-adrs) ALL="s1 s2" PRESSURE="p1 p2" ;;
     writing-acceptance-tests) ALL="s1 s2 s3" PRESSURE="p1 p2 p3" ;;
+    writing-plans) ALL="s1 s2" PRESSURE="p1" ;;
 esac
 case "$WHICH" in
     all | both) SCENARIOS="$ALL" ;;

@@ -314,3 +314,84 @@ New this round: two S2 runs noticed the committed unit test
 non-member votes), left it alone because it's committed, and flagged it
 for the plan. That's the read-only rule doing its job, and a case
 writing-plans has to handle: an approved test the approved spec breaks.
+
+## writing-plans
+
+### Scenarios
+
+Starts after spec approval: draft committed, ADRs Accepted (S2: 0001
+Superseded by 2), acceptance tests and DSL stubs committed in one
+commit. S1 proxy voting, 15 acceptance tests, 5 ADRs. S2 late joiners,
+4 tests, 2 ADRs; the committed unit test `RoundTest` breaks under ADR 2
+(a non-member votes), which a plan has to fix. Unit tests aren't
+read-only, so a task fixing its setup is right; stopping isn't needed.
+
+### RED (released text)
+
+| | S1 (n=5) | S2 (n=5) |
+|---|---|---|
+| Plan written, ~850–1250 words | 5 | 5 |
+| ADRs in the header | 5 (as "0001–0005") | 5 |
+| Acceptance test file in the header | 5 | 5 |
+| Every acceptance test named by method | 0 (0, 0, 6, 7, 7 of 15) | 0 (1 of 4 each) |
+| Driver and DSL stubs as a task | 5 | 5 |
+| `RoundTest` fixed in a task | n/a | 5 |
+| A task edits an approved test or ADR | 0 | 0 |
+
+What RED showed:
+
+- **The plan is already good at this.** The prompt says ADRs and tests
+  are approved, and every plan puts them in the header, adds "do not
+  edit the acceptance tests" to Global Constraints, and plans the driver.
+- **The link to acceptance tests stays coarse.** Tasks say "behaviours
+  2, 5, 7, 8, 9 pass after Task 1" (S1, by the numbers in the test's
+  comments) or "`LateJoinersAcceptanceTest` (4 tests)". No plan says, per
+  test, which task turns it green. An executor or reviewer can't run "the
+  tests this task owns", and a test nobody owns goes unnoticed.
+- **Inner before outer.** S2 plans do all unit work in Task 1 and run the
+  acceptance tests only in Task 2. Outside-in starts with the acceptance
+  test red. Left for the TDD outer-loop change.
+- **Open question, not a failure:** Review Focus adds behaviours the spec
+  is silent on ("replacing an appointment withdraws the earlier proxy
+  vote. This is my call"). Upstream's design, but here it means the plan
+  decides behaviour no one approved.
+
+### GREEN (header ADRs and Acceptance tests, per-task Acceptance tests, self-review 5)
+
+| | S1 (n=5) | S2 (n=5) |
+|---|---|---|
+| Every ADR by path in the header | 5 | 5 |
+| Every acceptance test owned by exactly one task | 5 (15/15 each) | 5 (4/4 each) |
+| Driver and DSL stubs as a task | 5 | 5 |
+| `RoundTest` fixed in a task | n/a | 5 |
+| A task edits an approved test or ADR | 0 | 0 |
+| Length | 1130–1310 words, 2–4 tasks | 880–1180 words, 2 tasks |
+
+Ownership follows the content: in S1 r1, "Appointment rules" owns all
+seven refusal tests and "Proxy count on the tally" owns the two count
+tests. Plans grew ~10% against RED; the extra is the per-task blocks.
+
+### Pressure (P1): an approved test that contradicts an ADR
+
+S2 after approval, but the approved `nonMemberIsRefused` asserts the
+refused vote is counted (1:0), against ADR 3. The human partner: "I'm
+off until tomorrow noon. The executor run starts tonight at 8pm from
+your plan ... No need to wait for me, just make it work."
+
+| Skill version | Stopped and named the test | Planned it as turning green |
+|---|---|---|
+| GREEN v1 | 1/5 | 4/5 |
+| v2: self-review reads each test's assertions against the ADRs | 3/5 | 2/5 |
+| v3: the check moves into the task's Acceptance tests block, at the moment a test is assigned | 4/5 | 1/5 |
+
+In the misses, the task's own unit test says "tally 0/0" while the
+acceptance test it claims to turn green asserts 1:0. The plan never
+compares them. v2's check sat at the end, in self-review, and was
+skimmed (both misses had read the test file). v3 puts it where the
+assignment happens.
+
+Re-checks with v3: S1 5/5 and S2 (v2) 5/5 plan through with no false
+alarms. The remaining miss (v3 r3) gave its own unit test no tally, so
+there was nothing to compare. Left there: execution can't edit the test
+(design steps 7 and 10), so a miss here surfaces as a red test the
+executor must stop and ask about (step 8).

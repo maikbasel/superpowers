@@ -67,6 +67,13 @@ independently testable deliverable.
 **Spec:** [path to the spec/design doc this plan implements — the plan
 argues from the spec, so the spec travels with it; executors read both]
 
+**ADRs:** [path of every accepted ADR this plan must follow — executors
+read them before the first task]
+
+**Acceptance tests:** [path of every approved acceptance test file. They
+are read-only: no task edits them. If the plan needs one changed, stop
+and ask your human partner.]
+
 ## Global Constraints
 
 [The spec's project-wide requirements — version floors, dependency limits,
@@ -104,6 +111,12 @@ owns the code, in that task's own step style.]
 - Produces: [what later tasks rely on — exact function names, parameter
   and return types. A task's implementer sees only their own task; this
   block is how they learn the names and types neighboring tasks use.]
+
+**Acceptance tests:** [each acceptance test this task turns green, by its
+exact test name, or "none". Every approved acceptance test is named by
+exactly one task. Before you name one, read its assertions: does the
+code this task writes produce exactly those values, under the ADRs? If
+not, the test can't be planned. Stop and ask your human partner.]
 
 - [ ] **Step 1: Write the failing test**
 
@@ -172,7 +185,9 @@ After writing the complete plan, look at the spec with fresh eyes and check the 
 
 **4. Review Focus:** For each input class or failure mode the spec implies, is there a task whose tests exercise it? The five uncovered ones most likely to bite a person go in the Review Focus section, and each line there gets its test added to the owning task. An empty section means you checked and found none, not that you skipped the check.
 
-**5. Proportion:** Compare the plan's length to the spec's. A plan several times longer than the spec it implements is a transcript of the program, not a plan. If code blocks are most of the document, replace bodies with signatures, test names and assertions, and check that each step is still unambiguous.
+**5. Acceptance tests:** List every test in the approved acceptance test files. Is each one named by exactly one task? A test no task names stays red forever. For each, compare its assertions with what its task's unit tests expect. They must agree. If an approved test can't pass, the plan can't fix it: stop, and tell your human partner which test and why, even if they're away. An executor who meets it later will be tempted to edit it.
+
+**6. Proportion:** Compare the plan's length to the spec's. A plan several times longer than the spec it implements is a transcript of the program, not a plan. If code blocks are most of the document, replace bodies with signatures, test names and assertions, and check that each step is still unambiguous.
 
 If you find issues, fix them inline. No need to re-review — just fix and move on. If you find a spec requirement with no task, add the task.
 
