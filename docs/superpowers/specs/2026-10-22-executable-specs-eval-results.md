@@ -395,3 +395,19 @@ alarms. The remaining miss (v3 r3) gave its own unit test no tally, so
 there was nothing to compare. Left there: execution can't edit the test
 (design steps 7 and 10), so a miss here surfaces as a red test the
 executor must stop and ask about (step 8).
+
+### Behaviour calls in Review Focus: no change needed
+
+Concern: Review Focus lets the plan decide behaviour nobody approved
+("replacing an appointment discards the earlier holder's proxy vote.
+This is my call"). Decision with the human partner: such calls must be
+shown at plan review, where they're confirmed or changed (option B).
+
+Baseline before changing anything, all 15 S1 runs (RED, GREEN, v3):
+every hand-back lists the behaviour calls separately and asks for
+confirmation ("Three things I decided that the ADRs don't spell out.
+Please confirm them or tell me to change them"). The replaced-vote call
+reaches the hand-back in 14 of 15, the reverse-chain call in most runs
+that plan it. Robustness cases (same holder twice, repeat vote) and
+technical choices are sometimes in the same list, but nothing is
+hidden. No failing baseline, so no skill change.
