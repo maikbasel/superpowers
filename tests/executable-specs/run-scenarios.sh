@@ -133,6 +133,7 @@ base_of() {
         writing-adrs:p2 | writing-acceptance-tests:p1 | writing-acceptance-tests:p2) echo s2 ;;
         writing-acceptance-tests:p3) echo s3 ;;
         writing-plans:p1) echo s2 ;;
+        writing-plans:p2) echo s1 ;;
         *) echo "$1" ;;
     esac
 }
@@ -424,7 +425,7 @@ case "$SKILL" in
     brainstorming) ALL="s1 s2" PRESSURE="p1" ;;
     writing-adrs) ALL="s1 s2" PRESSURE="p1 p2" ;;
     writing-acceptance-tests) ALL="s1 s2 s3" PRESSURE="p1 p2 p3" ;;
-    writing-plans) ALL="s1 s2" PRESSURE="p1" ;;
+    writing-plans) ALL="s1 s2" PRESSURE="p1 p2" ;;
 esac
 case "$WHICH" in
     all | both) SCENARIOS="$ALL" ;;
