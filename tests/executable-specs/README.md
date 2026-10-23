@@ -1,8 +1,8 @@
 # Executable-specs skill scenarios
 
-RED/GREEN scenarios for the skills this fork adds or changes:
+RED/GREEN and pressure scenarios for the skills this fork adds or changes:
 `brainstorming` (draft with Behaviours, gate to `writing-adrs`),
-`writing-adrs` and `writing-acceptance-tests`. Results and what each run
+`writing-adrs`, `writing-acceptance-tests` and `writing-plans`. Results and what each run
 showed:
 `docs/superpowers/specs/2026-10-22-executable-specs-eval-results.md`.
 
@@ -102,3 +102,12 @@ happened yet). For s3: the approved tests are unchanged and still fail
 with "not implemented"; `0002` and `0003` are Accepted and `0001` is
 Superseded; one commit holds both the ADRs and the tests, and nothing is
 left uncommitted; the hand-back names `writing-plans` next.
+
+**writing-plans** starts after approval (ADRs Accepted, `0001`
+Superseded, tests and stubs committed; S1 15 tests, S2 4). A plan is
+written; it names every accepted ADR and the acceptance test file, and
+every acceptance test by method; it plans `LibraryDriver`; no task
+creates or modifies an approved test or ADR; no code is written. S2
+also: the plan fixes `RoundTest`, a unit test ADR 2 breaks. `p1` makes
+the approved `nonMemberIsRefused` contradict ADR 3: the hand-back must
+name it. Plans take longer; run with `TIMEOUT=900`.
