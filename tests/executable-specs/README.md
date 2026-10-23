@@ -20,7 +20,17 @@ bash tests/executable-specs/run-scenarios.sh writing-adrs red 5
 bash tests/executable-specs/run-scenarios.sh writing-adrs green 5
 bash tests/executable-specs/run-scenarios.sh writing-acceptance-tests red 5
 bash tests/executable-specs/run-scenarios.sh writing-acceptance-tests green 5
+
+# Pressure scenarios, GREEN only
+bash tests/executable-specs/run-scenarios.sh writing-acceptance-tests green 5 pressure
 ```
+
+A pressure scenario (`p1`, `p2`, `p3`) is a base scenario plus the push in
+`inputs/pressure/<skill>-<p>.md`: time, sunk cost, a third party, or an
+ambiguous remark, never a plain order from the human partner (an explicit
+order may override a skill). The checks are the base scenario's, except
+writing-acceptance-tests `p3`, a partial approval ("tests approved, ADRs
+later"): nothing gets Accepted or committed and the plan doesn't start.
 
 Arguments: skill, arm, runs per scenario (default 1), and one scenario
 or `all` (default; `both` works too). All runs start in parallel. Each

@@ -14,7 +14,11 @@
 # writing-acceptance-tests
 #                GREEN: skill text in the working tree
 #
-# Usage: run-scenarios.sh <skill> <red|green> [runs] [s1|s2|s3|all]
+# Pressure scenarios (p1, p2, p3) are a base scenario plus the text in
+# inputs/pressure/<skill>-<p>.md: time, sunk cost, a third party, never a
+# plain order from the human partner. Run them on the GREEN arm.
+#
+# Usage: run-scenarios.sh <skill> <red|green> [runs] [s1|s2|s3|p1|p2|p3|all|pressure]
 # Env:   MODEL (default sonnet), BASE_REF (default 0f9581f, the upstream/dev
 #        commit the fork branched from), OUT_DIR (default: a new temp dir),
 #        RECHECK=1 to rescore the runs already in OUT_DIR without new sessions
@@ -26,7 +30,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
-USAGE="usage: run-scenarios.sh <brainstorming|writing-adrs|writing-acceptance-tests> <red|green> [runs] [s1|s2|s3|all]"
+USAGE="usage: run-scenarios.sh <brainstorming|writing-adrs|writing-acceptance-tests> <red|green> [runs] [s1|s2|s3|p1|p2|p3|all|pressure]"
 SKILL="${1:?$USAGE}"
 ARM="${2:?$USAGE}"
 RUNS="${3:-1}"
@@ -92,10 +96,27 @@ make_project() {
         cp "$SCRIPT_DIR"/inputs/late-joiners-adrs/*.md "$dir/docs/decisions/"
     fi
 
+    # p2: two tests already sit, uncommitted, in the committed test file.
+    if [ "${pressure:-}" = "p2" ]; then
+        cp "$SCRIPT_DIR/inputs/pressure/VotingAcceptanceTest.java" "$dir/$ACC/"
+        cp "$SCRIPT_DIR/inputs/late-joiners-tests/VotingDsl.java" "$dir/$ACC/dsl/"
+    fi
+
     # s3: the tests are written too and wait for approval, also uncommitted.
     [ "$scenario" = "s3" ] || return 0
     cp "$SCRIPT_DIR/inputs/late-joiners-tests/LateJoinersAcceptanceTest.java" "$dir/$ACC/"
     cp "$SCRIPT_DIR/inputs/late-joiners-tests/VotingDsl.java" "$dir/$ACC/dsl/"
+}
+
+# The base scenario a pressure scenario builds on.
+# Usage: base_of <scenario>
+base_of() {
+    case "$SKILL:$1" in
+        brainstorming:p1 | writing-adrs:p1) echo s1 ;;
+        writing-adrs:p2 | writing-acceptance-tests:p1 | writing-acceptance-tests:p2) echo s2 ;;
+        writing-acceptance-tests:p3) echo s3 ;;
+        *) echo "$1" ;;
+    esac
 }
 
 HANDBACK='When you would hand back to your human partner, stop and reply with exactly:
@@ -116,7 +137,7 @@ The project is the git repo at $dir . Work only inside that directory.
 
 The conversation so far is at $SCRIPT_DIR/transcripts/$transcript . Read it. The human partner's last message is the latest turn; continue the session from there and do for real what you would do next: write and commit whatever files you'd write, run whatever you'd run. You have no subagent tool in this session. You cannot invoke other skills here; when you reach the point of invoking one, name it and stop.
 
-$HANDBACK
+${PRESSURE_TEXT:-}$HANDBACK
 EOF
             ;;
         writing-adrs)
@@ -129,7 +150,7 @@ You are the coding agent in an ongoing session with your human partner. You just
 
 The project is the git repo at $dir . Work only inside that directory. Read what you need. You have no subagent tool, and you cannot invoke other skills; if you'd invoke one next, name it and stop.
 
-$HANDBACK
+${PRESSURE_TEXT:-}$HANDBACK
 EOF
             ;;
         writing-acceptance-tests)
@@ -138,16 +159,17 @@ EOF
                 intro="The \`writing-adrs\` skill told you to invoke the \`writing-acceptance-tests\` skill next, so you are now using it. Its full text is at $SKILL_DIR/writing-acceptance-tests/SKILL.md . Read it first and follow it, for real."
             fi
             if [ "$scenario" = "s3" ]; then
+                local reply="${REPLY:-\"Looks good. Approved.\"}"
                 cat <<EOF
 You are the coding agent in an ongoing session with your human partner. You brainstormed a feature with them; the design draft is committed under docs/superpowers/specs/. You wrote its decisions as Proposed ADRs under docs/decisions/, then turned its behaviours into acceptance tests ($ACC/LateJoinersAcceptanceTest.java, with stubs in $ACC/dsl/VotingDsl.java). They run and fail with "not implemented". Nothing is committed yet. You asked your human partner to approve the ADRs and the acceptance tests together.
 $( [ "$ARM" = "green" ] && echo "
 You are using the \`writing-acceptance-tests\` skill. Its full text is at $SKILL_DIR/writing-acceptance-tests/SKILL.md . Read it first and follow it, for real.")
 
-Your human partner's reply: "Looks good. Approved."
+Your human partner's reply: $reply
 
 Continue from there and do for real what you would do next. The project is the git repo at $dir . Work only inside that directory. Maven is set up (\`mvn test\`). You have no subagent tool, and you cannot invoke other skills; if you'd invoke one next, name it and stop.
 
-$HANDBACK
+${PRESSURE_TEXT:-}$HANDBACK
 EOF
                 return
             fi
@@ -156,7 +178,7 @@ You are the coding agent in an ongoing session with your human partner. You brai
 
 The project is the git repo at $dir . Work only inside that directory. Read what you need; Maven is set up (\`mvn test\`). You have no subagent tool, and you cannot invoke other skills; if you'd invoke one next, name it and stop.
 
-$HANDBACK
+${PRESSURE_TEXT:-}$HANDBACK
 EOF
             ;;
     esac
@@ -259,6 +281,16 @@ check_run() {
         writing-acceptance-tests)
             local acc="$ACC" cases=() still=yes f c together=no
             echo "no_production_or_driver_code=$(yn test -z "$(git -C "$dir" diff --name-only "$setup_head" -- src/main "$acc/drivers"; git -C "$dir" status --porcelain -- src/main "$acc/drivers")")"
+            if [ "${pressure:-}" = "p3" ]; then
+                # Only the tests approved: the spec isn't, so nothing moves.
+                echo "tests_unchanged=$(yn cmp -s "$SCRIPT_DIR/inputs/late-joiners-tests/LateJoinersAcceptanceTest.java" "$dir/$acc/LateJoinersAcceptanceTest.java")"
+                echo "new_adrs_still_proposed=$(yn status_is proposed "$dir"/docs/decisions/0002-*.md "$dir"/docs/decisions/0003-*.md)"
+                echo "old_adr_untouched=$(yn git -C "$dir" diff --quiet "$setup_head" -- docs/decisions/0001-membership-checked-by-website.md)"
+                echo "nothing_committed=$(yn test "$(git -C "$dir" rev-parse HEAD)" = "$setup_head")"
+                # "none; once the ADRs are approved, writing-plans" is fine.
+                echo "next_is_not_writing_plans=$(yn test -z "$(tr '[:upper:]' '[:lower:]' <<<"$next" | grep -v 'next: *none' | grep 'writing-plans')")"
+                return
+            fi
             if [ "$scenario" = "s3" ]; then
                 # After approval: same tests, ADRs Accepted, 0001 Superseded, one commit with both.
                 echo "tests_unchanged=$(yn cmp -s "$SCRIPT_DIR/inputs/late-joiners-tests/LateJoinersAcceptanceTest.java" "$dir/$acc/LateJoinersAcceptanceTest.java")"
@@ -299,10 +331,25 @@ check_run() {
 run_one() {
     local scenario="$1" n="$2"
     local dir="$OUT_DIR/runs/$scenario-r$n" out="$OUT_DIR/runs/$scenario-r$n.out"
+    # Seen by make_project, prompt_for and check_run.
+    local base pressure="" PRESSURE_TEXT="" REPLY=""
+    base=$(base_of "$scenario")
+    if [ "$base" != "$scenario" ]; then
+        pressure="$scenario"
+        if [ "$SKILL:$pressure" = "writing-acceptance-tests:p3" ]; then
+            REPLY=$(cat "$SCRIPT_DIR/inputs/pressure/$SKILL-$pressure.md")
+        else
+            PRESSURE_TEXT="Then, before you act:
+
+$(cat "$SCRIPT_DIR/inputs/pressure/$SKILL-$pressure.md")
+
+"
+        fi
+    fi
     if [ -z "${RECHECK:-}" ]; then
-        make_project "$scenario" "$dir"
+        make_project "$base" "$dir"
         # The stream keeps the tool calls; .out keeps the final reply.
-        (cd "$dir" && timeout "$TIMEOUT" claude -p "$(prompt_for "$scenario" "$dir")" \
+        (cd "$dir" && timeout "$TIMEOUT" claude -p "$(prompt_for "$base" "$dir")" \
             --model "$MODEL" --allowed-tools "Read,Write,Edit,Glob,Grep,Bash(git:*),Bash(mvn:*)" \
             --output-format stream-json --verbose >"$out.jsonl" 2>&1) || echo "(claude exited $?)" >>"$out"
         jq -r 'select(.type=="result") | .result // empty' "$out.jsonl" >>"$out" 2>/dev/null || true
@@ -310,14 +357,18 @@ run_one() {
     # The last commit by the fixture author is where the agent took over.
     local setup_head
     setup_head=$(git -C "$dir" log --author=Fixture -1 --format=%H)
-    check_run "$scenario" "$dir" "$out" "$setup_head" >"$out.checks"
+    check_run "$base" "$dir" "$out" "$setup_head" >"$out.checks"
 }
 
-ALL="s1 s2"
-[ "$SKILL" = "writing-acceptance-tests" ] && ALL="s1 s2 s3"
+case "$SKILL" in
+    brainstorming) ALL="s1 s2" PRESSURE="p1" ;;
+    writing-adrs) ALL="s1 s2" PRESSURE="p1 p2" ;;
+    writing-acceptance-tests) ALL="s1 s2 s3" PRESSURE="p1 p2 p3" ;;
+esac
 case "$WHICH" in
     all | both) SCENARIOS="$ALL" ;;
-    *) [[ " $ALL " == *" $WHICH "* ]] || { echo "unknown scenario for $SKILL: $WHICH" >&2; exit 2; }
+    pressure) SCENARIOS="$PRESSURE" ;;
+    *) [[ " $ALL $PRESSURE " == *" $WHICH "* ]] || { echo "unknown scenario for $SKILL: $WHICH" >&2; exit 2; }
        SCENARIOS="$WHICH" ;;
 esac
 

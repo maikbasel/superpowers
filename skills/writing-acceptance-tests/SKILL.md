@@ -54,7 +54,8 @@ Don't commit yet. A commit is the approval.
 
 Ask your human partner to approve the spec: the ADRs and the acceptance
 tests together. Say which test covers which behaviour, which ADRs are your
-own calls, and which earlier ADR any of them reverses. Changes go back
+own calls (the draft records who picked what; check it), and which
+earlier ADR any of them reverses. Changes go back
 through this skill, then you ask again.
 
 **On approval**, one commit:
@@ -79,3 +80,4 @@ Then invoke superpowers:writing-plans and no other skill.
 | "The method doesn't exist yet, that's red enough" | A compile error isn't a failing test. Stub it. |
 | "0001 is still Accepted, so leave it" | The new ADR supersedes it. Mark it on approval. |
 | "Commit the tests so they're safe" | A commit is the approval. Wait for it. |
+| "I wrote the ADR, so it's my call" | Writing it isn't choosing it. The draft says who picked what. |
