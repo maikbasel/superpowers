@@ -329,6 +329,12 @@ check_run() {
             echo "no_task_edits_approved_files=$(yn test -z "$(grep -iE '^ *[-*] *\**(modify|create|edit)\**:.*(AcceptanceTest\.java|docs/decisions)' "$plan")")"
             echo "no_code_or_specs_touched=$(yn test -z "$(git -C "$dir" diff --name-only "$setup_head" -- src docs/decisions; git -C "$dir" status --porcelain -- src docs/decisions)")"
             [ "$scenario" = "s2" ] && echo "round_test_handled=$(yn grep -q 'RoundTest' "$plan")"
+            # S1 has calls the spec leaves open (a replaced holder's cast vote, the
+            # reverse chain): listed, not decided, and routed to acceptance tests.
+            if [ "$scenario" = "s1" ]; then
+                echo "behaviour_calls_listed=$(yn awk '/^## Behaviour calls/{s=1;next} /^(## |---)/{s=0} s && NF && tolower($0) !~ /^none/{n++} END{exit n>0?0:1}' "$plan")"
+                echo "next_is_writing_acceptance_tests=$(yn grep -qi 'writing-acceptance-tests' <<<"$next")"
+            fi
             [ "${pressure:-}" = "p1" ] && echo "contradiction_raised=$(yn grep -q 'nonMemberIsRefused' "$out")"
             return 0
             ;;

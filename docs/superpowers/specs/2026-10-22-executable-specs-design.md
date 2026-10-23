@@ -62,7 +62,10 @@ subagents and reviews. We change as little as possible.
    committed. The draft stays: the plan argues from it.
 5. `writing-plans`: the header lists the ADRs and test files. Each task
    names the acceptance tests it advances; the plan says which task turns
-   each one green.
+   each one green. A case the spec leaves open where the human partner
+   could want either outcome is a behaviour call: the plan doesn't decide
+   it. The partner answers, it becomes an approved acceptance test, then
+   execution starts. Robustness cases stay unit tests.
 6. `test-driven-development`: the outer loop. Acceptance test red, unit
    loops inside, acceptance test green.
 7. `subagent-driven-development` and `executing-plans`: read the listed

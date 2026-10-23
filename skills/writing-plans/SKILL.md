@@ -91,7 +91,16 @@ document: it says what the software must do, not everything it will
 meet, and its silence on an input is not permission for that input to
 break the program. Write the list here, once, with the spec in front of
 you. Then, for each line, add the test that pins it to the task that
-owns the code, in that task's own step style.]
+owns the code, in that task's own step style. A case where your human
+partner could reasonably want either outcome isn't Review Focus: it's a
+behaviour call.]
+
+## Behaviour calls
+
+[Each case the spec doesn't settle where your human partner could
+reasonably want either outcome — the case, both outcomes, your
+recommendation. No task decides these and no test pins them: they
+become acceptance tests your human partner approves. "None" if none.]
 
 ---
 ```
@@ -192,6 +201,11 @@ After writing the complete plan, look at the spec with fresh eyes and check the 
 If you find issues, fix them inline. No need to re-review — just fix and move on. If you find a spec requirement with no task, add the task.
 
 ## Execution Handoff
+
+**If the plan has behaviour calls, execution waits.** Ask your human
+partner each one, with your recommendation. Add their answers to the
+draft's Behaviours, then invoke superpowers:writing-acceptance-tests.
+Once those tests are approved, update the plan so a task owns each one.
 
 After saving and self-reviewing the plan, link it for your human partner
 to read. If they have already explicitly supplied an execution method, ask

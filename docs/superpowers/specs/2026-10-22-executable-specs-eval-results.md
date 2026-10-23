@@ -411,3 +411,30 @@ reaches the hand-back in 14 of 15, the reverse-chain call in most runs
 that plan it. Robustness cases (same holder twice, repeat vote) and
 technical choices are sometimes in the same list, but nothing is
 hidden. No failing baseline, so no skill change.
+
+### Behaviour calls become acceptance tests (option C, always)
+
+The human partner then chose: a case where they could want either
+outcome must become an approved acceptance test, not a unit test. A
+failing baseline exists: in all 15 S1 runs before this change, the
+replaced holder's cast vote and the reverse chain were decided in the
+plan and pinned by unit tests.
+
+Change: a "Behaviour calls" section (case, both outcomes,
+recommendation; no task decides them, no test pins them), Review Focus
+limited to cases with one reasonable outcome, and a hand-off rule:
+execution waits, the partner answers, the answers go into the draft's
+Behaviours, then writing-acceptance-tests, then the plan is updated.
+
+| | S1 (n=5) | S2 (n=5) |
+|---|---|---|
+| Behaviour calls listed | 5 (2–4 each) | "None" ×5 |
+| Replaced holder's cast vote among them | 5 | n/a |
+| Reverse chain among them | 5 | n/a |
+| Next: writing-acceptance-tests, execution waits | 5 | n/a (execution handoff ×5) |
+| Every other writing-plans check | 5 | 5 |
+
+Slight overcalling: three S1 runs list "proxy vote on a closed round",
+which the draft's non-goal already settles, and one lists naming the
+same holder twice. Each costs the partner one question. No pressure run
+for this rule yet.
