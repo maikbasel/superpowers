@@ -668,3 +668,41 @@ workflow (a mocking library, Gherkin) is an ADR. Plus a Red Flags row.
 Two check fixes on the way: "ignored" matched `red`, and one S2 run wrote
 `## Supersedes` as a heading in 0001's format, which the check didn't
 read. Both runs were right.
+
+## Outside-in and hand-written fakes, settled by the workflow
+
+### Scenario (brainstorming S4)
+
+Kata run 1 verbatim up to "whatever the plugin workflow says", after the
+partner asked for strict outside-in TDD. In the run, the next reply
+offered Mockito, hand-written doubles or real objects. Check: no option
+whose title is about test doubles (trade-off text may mention them).
+
+### Baseline (fork text before this change)
+
+By hand 4/5 offered a test-style menu: "Mocks per layer ... I'd add
+Mockito" vs "In-memory stand-ins"; "Strict outside-in with stand-ins"
+vs "only the clock is faked"; "hand-written stand-ins" vs "add Mockito
+for the stand-ins". The title check catches 3 (one run made the choice
+in its trade-off lines).
+
+### GREEN
+
+brainstorming: the approaches are about the software, its parts and
+what it rests on; how the work is done (tests first, outside-in from
+acceptance tests, hand-written test doubles, commit rhythm) is settled
+by the workflow. test-driven-development: "Real code (no mocks unless
+unavoidable)" becomes the rule: a test double only at a boundary (clock,
+console, network, files) or for a collaborator that doesn't exist yet,
+and then a small hand-written fake, not a mocking library; a project that
+uses one records that as an ADR.
+
+S4 0/5 test-style options; the approaches became software shapes ("parse,
+then dispatch to a small domain", "one handler per command", "one class
+per command"), and one run said "the plugin workflow settles the 'how we
+work' part". S1–S3 unchanged: 15/15.
+
+The TDD wording has no failing TDD baseline of its own: in the outer-loop
+runs no implementer reached for a mocking library (none was on the
+classpath). It's the rule brainstorming now points to; the evidence for
+it is the S4 baseline, where two runs recommended adding Mockito.

@@ -82,7 +82,7 @@ make_project() {
     local scenario="$1" dir="$2"
     mkdir -p "$dir"
     # brainstorming s3 starts a kata from an empty Maven project and its brief.
-    if [ "$SKILL:$scenario" = "brainstorming:s3" ] || [ "$SKILL:$scenario" = "writing-adrs:s3" ]; then
+    if [ "$SKILL:$scenario" = "brainstorming:s3" ] || [ "$SKILL:$scenario" = "brainstorming:s4" ] || [ "$SKILL:$scenario" = "writing-adrs:s3" ]; then
         cp -R "$SCRIPT_DIR/fixtures/social-kata/." "$dir/"
         git -C "$dir" init -q
         commit_all "$dir" "Social networking kata: brief, Maven project, Java 21"
@@ -200,6 +200,7 @@ prompt_for() {
                 s1) transcript=s1-proxy-voting.md ;;
                 s2) transcript=s2-late-joiners.md ;;
                 s3) transcript=s3-social-kata.md ;;
+                s4) transcript=s4-social-kata-style.md ;;
             esac
             cat <<EOF
 You are the coding agent in an ongoing session with your human partner. You are using the \`brainstorming\` skill. Its full text is at $SKILL_DIR/brainstorming/SKILL.md (supporting files next to it). Read it first and follow it.
@@ -361,6 +362,13 @@ check_run() {
         brainstorming)
             local draft
             draft=$(ls "$dir"/docs/superpowers/specs/*.md 2>/dev/null | head -1 || true)
+            if [ "$scenario" = "s4" ]; then
+                # The workflow settles the test style: no option offered whose title
+                # is about test doubles. Trade-off text may still mention them.
+                echo "no_test_style_question=$(yn test -z "$(grep -iE '^ *(- )?\*\*[^*]*(mock|fake|stand-in|double|clock is faked|real objects|london|chicago)[^*]*\*\*' "$out" || true)")"
+                echo "no_code_touched=$(yn test -z "$(git -C "$dir" status --porcelain -- src pom.xml)")"
+                return 0
+            fi
             if [ "$scenario" = "s3" ]; then
                 # The first reply must say how the app is used: everyone at one
                 # console, or each user at their own terminal.
@@ -565,7 +573,7 @@ $(cat "$SCRIPT_DIR/inputs/pressure/$SKILL-$pressure.md")
 }
 
 case "$SKILL" in
-    brainstorming) ALL="s1 s2 s3" PRESSURE="p1" ;;
+    brainstorming) ALL="s1 s2 s3 s4" PRESSURE="p1" ;;
     writing-adrs) ALL="s1 s2 s3" PRESSURE="p1 p2" ;;
     writing-acceptance-tests) ALL="s1 s2 s3" PRESSURE="p1 p2 p3" ;;
     writing-plans) ALL="s1 s2" PRESSURE="p1 p2" ;;

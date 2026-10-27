@@ -151,7 +151,10 @@ each in what the project actually does and saying what it trades off.
 Recommend one and say why, then ask which way they want to go. When
 there's genuinely one sensible way, say so and explain why the others
 don't fit. This is for how it gets built; for what they want, get them
-describing first.
+describing first. The approaches are about the software: its parts and
+what it rests on. How the work is done (tests first, outside-in from
+acceptance tests, hand-written test doubles, commit rhythm) is settled
+by this workflow, so it isn't one of them.
 
 **Show, don't tell.** Offer the visual companion (below) whenever seeing
 would help more than reading:

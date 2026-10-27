@@ -108,7 +108,10 @@ Vague name, tests mock not code
 **Requirements:**
 - One behavior
 - Clear name
-- Real code (no mocks unless unavoidable)
+- Real code. A test double only at a boundary (clock, console, network,
+  files) or for a collaborator that doesn't exist yet, and then a small
+  hand-written fake, not a mocking library. A project that uses one
+  records that as an ADR.
 
 ### Verify RED - Watch It Fail
 
@@ -300,7 +303,7 @@ Before marking work complete:
 - [ ] Wrote minimal code to pass each test
 - [ ] All tests pass
 - [ ] Output pristine (no errors, warnings)
-- [ ] Tests use real code (mocks only if unavoidable)
+- [ ] Tests use real code (hand-written fakes only at boundaries)
 - [ ] Edge cases and errors covered
 
 Can't check all boxes? You skipped TDD. Start over.
