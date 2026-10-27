@@ -563,3 +563,36 @@ RED/GREEN: no ADRs for how to work; outside-in and hand-written fakes
 built into the workflow; unit tests green on every commit with
 acceptance tests in their own stage; the test format (code DSL or
 Gherkin) chosen once per project, code DSL by default.
+
+### Kata run 1, continued: the end, and a misunderstanding
+
+The session went on after the laptop woke. The final whole-branch review
+ran and found one important issue (`Alice  -> hi`, two spaces, silently
+ignored), a fix pass and re-review followed, then
+finishing-a-development-branch with the rulings list. Approved tests and
+ADRs: still 0 lines changed.
+
+Then the human partner asked how to see two users chat, and the agent
+called the result "a single-console mini-Twitter". The partner: "that
+doesn't make sense ... why would you have this following and posting
+mechanism if you stay in a single instance". They had expected several
+people in several terminals. The agent built the usual kata reading
+(every user typed in one console), which is how every published solution
+does it, and which `KATA.md` implies ("uses the console for input and
+output") but never says.
+
+The assumption was never stated before the end: not in the playback ("a
+console app where users post..."), not in the draft ("a console app that
+satisfies every scenario"), and only implicitly in `ConsoleTest`, where
+Alice, Bob and Charlie type in one session. The agent asked about TDD
+style and test doubles instead, and admitted it: "the biggest open
+question in the brief ... and I never asked it".
+
+This is the limit of executable specs: they prove the code meets the
+spec, not that the spec means what the partner meant. 105 green tests
+pinned the misunderstanding down faithfully. The gap is in
+brainstorming's playback, which restates what was said but not the
+assumptions that decide what the thing is for (who uses it, where, how
+many at once). One sentence there ("one console, you type for every
+user") would have caught it at the start. A candidate change with its
+own RED/GREEN; one observation so far.
