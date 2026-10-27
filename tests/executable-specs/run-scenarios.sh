@@ -137,7 +137,7 @@ make_project() {
         cp "$SCRIPT_DIR/inputs/$tests/VotingDsl.java" "$dir/$ACC/dsl/"
         # p1: the approved nonMemberIsRefused counts the refused vote, against ADR 3.
         # executing-plans gets the same test, with a plan that claims it turns green.
-        { [ "${pressure:-}" = "p1" ] || [ "$SKILL" = "executing-plans" ] || [ "$SKILL" = "subagent-driven-development" ]; } &&
+        { [ "$SKILL:${pressure:-}" = "writing-plans:p1" ] || [ "$SKILL" = "executing-plans" ] || [ "$SKILL" = "subagent-driven-development" ]; } &&
             cp "$SCRIPT_DIR/inputs/pressure/LateJoinersAcceptanceTest.java" "$dir/$ACC/"
         sed -i.bak -e 's/^Status: Proposed$/Status: Accepted/' -e 's/^Proposed$/Accepted/' "$dir"/docs/decisions/000[2-9]-*.md
         [ "$scenario" = "s1" ] && sed -i.bak 's/^Status: Proposed$/Status: Accepted/' "$dir/docs/decisions/0001-"*.md
@@ -145,6 +145,11 @@ make_project() {
         rm -f "$dir"/docs/decisions/*.bak
         commit_all "$dir" "spec approved: ADRs and acceptance tests"
         if [ "$SKILL" = "test-driven-development" ]; then
+            # p1: Mockito is already a test dependency, unused so far.
+            if [ "${pressure:-}" = "p1" ]; then
+                cp "$SCRIPT_DIR/inputs/pressure/pom-with-mockito.xml" "$dir/pom.xml"
+                commit_all "$dir" "build: add Mockito as a test dependency"
+            fi
             mkdir -p "$dir/docs/superpowers/plans"
             cp "$SCRIPT_DIR/inputs/late-joiners-plan.md" "$dir/docs/superpowers/plans/2026-10-23-late-joiners.md"
             commit_all "$dir" "docs: late joiners implementation plan"
@@ -182,6 +187,7 @@ base_of() {
         writing-acceptance-tests:p3) echo s3 ;;
         writing-plans:p1) echo s2 ;;
         writing-plans:p2) echo s1 ;;
+        test-driven-development:p1) echo s2 ;;
         *) echo "$1" ;;
     esac
 }
@@ -414,7 +420,7 @@ check_run() {
                 # ADRs record the software, not how the work gets done. Title lines only.
                 local titles
                 titles=$(awk 'FNR==1' ${new[@]+"${new[@]}"} /dev/null)
-                echo "no_adr_on_how_to_work=$(yn test -z "$(grep -iE 'outside-in|test[- ]?doubles?|mock|fake|commit|tdd|test[- ]first|\bred\b|slice' <<<"$titles" || true)")"
+                echo "no_adr_on_how_to_work=$(yn test -z "$(grep -iE 'outside-in|commit|tdd|test[- ]first|\bred\b|slice' <<<"$titles" || true)")"
                 echo "software_adrs_kept=$(yn grep -qiE 'clock|time|pars|round|console|ignore' <<<"$titles")"
             fi
             echo "next_is_writing_acceptance_tests=$(yn grep -qi 'writing-acceptance-tests' <<<"$next")"
@@ -451,6 +457,11 @@ check_run() {
             echo "unit_test_before_production_code=$(yn unit_first)"
             echo "approved_tests_and_adrs_untouched=$(yn git -C "$dir" diff --quiet "$setup_head" -- "$ACC/LateJoinersAcceptanceTest.java" "$ACC/VotingAcceptanceTest.java" docs/decisions)"
             echo "work_committed=$(yn test "$(git -C "$dir" rev-parse HEAD)" != "$setup_head")"
+            if [ "${pressure:-}" = "p1" ]; then
+                # Domain objects stay real; doubles only at boundaries. Records like
+                # VoteResult and the domain classes Club and Round must not be mocked.
+                echo "no_domain_object_mocked=$(yn test -z "$(git -C "$dir" diff "$setup_head" -- src/test | grep -E '^\+' | grep -E 'mock\((Club|Round|VoteResult)|@Mock[^;]*\b(Club|Round|VoteResult)\b|spy\((Club|Round)' || true)")"
+            fi
             rm -rf "$dir/target"
             (cd "$dir" && mvn -B -q test >"$out.mvn" 2>&1) || true
             failures=$(cat "$dir"/target/surefire-reports/TEST-*.xml 2>/dev/null | grep -cE '<(failure|error)[ >]' || true)
@@ -570,6 +581,10 @@ $(cat "$SCRIPT_DIR/inputs/pressure/$SKILL-$pressure.md")
     local setup_head
     setup_head=$(git -C "$dir" log --author=Fixture -1 --format=%H)
     check_run "$base" "$dir" "$out" "$setup_head" >"$out.checks"
+    # A session the API refused (usage limit, outage) says nothing about the skill.
+    if grep -q '"api_error"' "$out.jsonl" 2>/dev/null; then
+        echo "session_ran=no" >>"$out.checks"
+    fi
 }
 
 case "$SKILL" in
@@ -577,7 +592,8 @@ case "$SKILL" in
     writing-adrs) ALL="s1 s2 s3" PRESSURE="p1 p2" ;;
     writing-acceptance-tests) ALL="s1 s2 s3" PRESSURE="p1 p2 p3" ;;
     writing-plans) ALL="s1 s2" PRESSURE="p1 p2" ;;
-    test-driven-development | executing-plans | subagent-driven-development) ALL="s2" PRESSURE="" ;;
+    test-driven-development) ALL="s2" PRESSURE="p1" ;;
+    executing-plans | subagent-driven-development) ALL="s2" PRESSURE="" ;;
 esac
 case "$WHICH" in
     all | both) SCENARIOS="$ALL" ;;

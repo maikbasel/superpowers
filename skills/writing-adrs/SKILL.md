@@ -22,8 +22,8 @@ per holder, so nobody collects votes").
 Not an ADR: a behaviour with no choice behind it, a detail the draft
 leaves to the builder, a name or signature. Nor how the work gets done
 where this workflow settles it: tests first, outside-in from acceptance
-tests, hand-written test doubles, how tests are split, commit rhythm. A
-project that departs from the workflow (a mocking library, Gherkin)
+tests, what gets a test double, how tests are split, commit rhythm. A
+project that departs from the workflow (Gherkin instead of a code DSL)
 records the departure as an ADR.
 
 Your own calls that are real decisions get an ADR too. Their status is
@@ -106,5 +106,5 @@ Then invoke superpowers:writing-acceptance-tests and no other skill.
 | "The old ADR is clearly outdated, I'll mark it superseded" | Accepted ADRs change only on approval. Name it under Supersedes. |
 | "Commit it so it's saved" | A commit is the approval. Leave it uncommitted. |
 | "This rule has no real alternative, but it's important" | Then it's a behaviour. It goes to a test. |
-| "They picked outside-in and fakes, that's a decision" | That's the workflow, not the software. No ADR. |
+| "They picked outside-in and how to double, that's a decision" | That's the workflow, not the software. No ADR. |
 | "Decisions are recorded, next is the plan" | Next is writing-acceptance-tests. The plan comes after approval. |

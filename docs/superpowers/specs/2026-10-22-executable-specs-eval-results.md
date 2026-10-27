@@ -706,3 +706,32 @@ The TDD wording has no failing TDD baseline of its own: in the outer-loop
 runs no implementer reached for a mocking library (none was on the
 classpath). It's the rule brainstorming now points to; the evidence for
 it is the S4 baseline, where two runs recommended adding Mockito.
+
+### Correction: what gets a test double, not how it's made
+
+The human partner pointed out that the workflow should follow idiomatic
+practice, and a mocking library is idiomatic in many ecosystems (Mockito
+in Java, `unittest.mock` in Python's standard library, `vi.fn()` in
+Vitest). "No mocking library" would fight them. What is common ground is
+what gets a test double: real objects where possible, doubles at
+boundaries and for collaborators that don't exist yet. How a double is
+made follows the project and its ecosystem. brainstorming and
+writing-adrs now say "what gets a test double", and "a mocking library"
+is no longer an example of a departure; Gherkin still is. The
+writing-adrs S3 check no longer flags fakes or mocks in ADR titles:
+choosing fakes over Java's usual Mockito is a project decision.
+
+The TDD wording got its own scenario, TDD P1: S2 with Mockito already a
+test dependency, unused. RED (upstream text, "Real code (no mocks unless
+unavoidable)") and GREEN (the new wording), 5 runs each: 0/10 runs used
+Mockito at all, and none mocked `Club`, `Round` or `VoteResult`. The new
+wording changes nothing measurable, so the TDD skill is back to the
+upstream text, which already settles what gets a double.
+
+Two faults of mine in this round. The first attempt hit the account's
+spend limit: every session was refused at once, and the checks read as
+"nobody mocks". The script now marks a session the API refused as
+`session_ran=no`. And the setup gave every `p1` scenario the
+contradicting `nonMemberIsRefused` from writing-plans P1, so the TDD P1
+runs stopped at that contradiction (correctly) and ended red. It's now
+limited to writing-plans P1; the Mockito result doesn't depend on it.
