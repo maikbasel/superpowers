@@ -735,3 +735,11 @@ spend limit: every session was refused at once, and the checks read as
 contradicting `nonMemberIsRefused` from writing-plans P1, so the TDD P1
 runs stopped at that contradiction (correctly) and ended red. It's now
 limited to writing-plans P1; the Mockito result doesn't depend on it.
+
+Re-check with the final wording, 5 runs each. brainstorming S4: no
+test-style menu, 5/5. writing-adrs S3: every run now writes one ADR for
+"hand-written fakes instead of a mocking library", as intended (the kata
+partner chose fakes over Java's usual Mockito, a project decision), plus
+the clock and console ADRs. No ADR on outside-in, slices or commits,
+except one run that folded outside-in into its fakes ADR ("Drive the
+design outside-in with hand-written test doubles"). Left at that.
