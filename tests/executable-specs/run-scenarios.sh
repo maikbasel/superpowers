@@ -82,10 +82,16 @@ make_project() {
     local scenario="$1" dir="$2"
     mkdir -p "$dir"
     # brainstorming s3 starts a kata from an empty Maven project and its brief.
-    if [ "$SKILL:$scenario" = "brainstorming:s3" ]; then
+    if [ "$SKILL:$scenario" = "brainstorming:s3" ] || [ "$SKILL:$scenario" = "writing-adrs:s3" ]; then
         cp -R "$SCRIPT_DIR/fixtures/social-kata/." "$dir/"
         git -C "$dir" init -q
         commit_all "$dir" "Social networking kata: brief, Maven project, Java 21"
+        # writing-adrs s3: the kata run's draft, which picked ways of working.
+        if [ "$SKILL" = "writing-adrs" ]; then
+            mkdir -p "$dir/docs/superpowers/specs"
+            cp "$SCRIPT_DIR/inputs/social-kata-draft.md" "$dir/docs/superpowers/specs/2026-10-23-social-networking-design.md"
+            commit_all "$dir" "Design draft for social networking kata"
+        fi
         return 0
     fi
     cp -R "$SCRIPT_DIR/fixtures/club-voting/." "$dir/"
@@ -389,7 +395,19 @@ check_run() {
             echo "nothing_committed=$(yn test "$(git -C "$dir" rev-parse HEAD)" = "$setup_head")"
             if [ "$scenario" = "s2" ]; then
                 echo "old_adr_untouched=$(yn git -C "$dir" diff --quiet "$setup_head" -- docs/decisions/0001-membership-checked-by-website.md)"
-                echo "names_supersedes=$(yn grep -qiE '^supersedes: *(adr *)?0*1\b' ${new[@]+"${new[@]}"} /dev/null)"
+                # A `Supersedes:` line, or a `## Supersedes` heading as in 0001's format.
+                supersedes_1() {
+                    grep -qiE '^supersedes: *(adr *)?0*1\b' "$@" /dev/null ||
+                        awk 'tolower($0) ~ /^## *supersedes/{s=1;next} s && NF{if (tolower($0) ~ /(adr *)?0*1([^0-9]|$)/) f=1; exit} END{exit f?0:1}' "$@" /dev/null
+                }
+                echo "names_supersedes=$(yn supersedes_1 ${new[@]+"${new[@]}"})"
+            fi
+            if [ "$scenario" = "s3" ]; then
+                # ADRs record the software, not how the work gets done. Title lines only.
+                local titles
+                titles=$(awk 'FNR==1' ${new[@]+"${new[@]}"} /dev/null)
+                echo "no_adr_on_how_to_work=$(yn test -z "$(grep -iE 'outside-in|test[- ]?doubles?|mock|fake|commit|tdd|test[- ]first|\bred\b|slice' <<<"$titles" || true)")"
+                echo "software_adrs_kept=$(yn grep -qiE 'clock|time|pars|round|console|ignore' <<<"$titles")"
             fi
             echo "next_is_writing_acceptance_tests=$(yn grep -qi 'writing-acceptance-tests' <<<"$next")"
             ;;
@@ -548,7 +566,7 @@ $(cat "$SCRIPT_DIR/inputs/pressure/$SKILL-$pressure.md")
 
 case "$SKILL" in
     brainstorming) ALL="s1 s2 s3" PRESSURE="p1" ;;
-    writing-adrs) ALL="s1 s2" PRESSURE="p1 p2" ;;
+    writing-adrs) ALL="s1 s2 s3" PRESSURE="p1 p2" ;;
     writing-acceptance-tests) ALL="s1 s2 s3" PRESSURE="p1 p2 p3" ;;
     writing-plans) ALL="s1 s2" PRESSURE="p1 p2" ;;
     test-driven-development | executing-plans | subagent-driven-development) ALL="s2" PRESSURE="" ;;

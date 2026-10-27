@@ -13,14 +13,18 @@ decisions."
 
 ## What gets an ADR
 
-One ADR per real decision: there were options, one was chosen for a
-reason, and the choice constrains later work. The approach your human
-partner picked is always one. So is a rule chosen over a clear
-alternative for a stated reason ("one proxy per holder, so nobody
-collects votes").
+One ADR per real decision about the software: there were options, one
+was chosen for a reason, and the choice constrains later work. The
+approach your human partner picked for the software is always one. So is
+a rule chosen over a clear alternative for a stated reason ("one proxy
+per holder, so nobody collects votes").
 
 Not an ADR: a behaviour with no choice behind it, a detail the draft
-leaves to the builder, a name or signature.
+leaves to the builder, a name or signature. Nor how the work gets done
+where this workflow settles it: tests first, outside-in from acceptance
+tests, hand-written test doubles, how tests are split, commit rhythm. A
+project that departs from the workflow (a mocking library, Gherkin)
+records the departure as an ADR.
 
 Your own calls that are real decisions get an ADR too. Their status is
 Proposed like every other new ADR, so your human partner confirms them
@@ -102,4 +106,5 @@ Then invoke superpowers:writing-acceptance-tests and no other skill.
 | "The old ADR is clearly outdated, I'll mark it superseded" | Accepted ADRs change only on approval. Name it under Supersedes. |
 | "Commit it so it's saved" | A commit is the approval. Leave it uncommitted. |
 | "This rule has no real alternative, but it's important" | Then it's a behaviour. It goes to a test. |
+| "They picked outside-in and fakes, that's a decision" | That's the workflow, not the software. No ADR. |
 | "Decisions are recorded, next is the plan" | Next is writing-acceptance-tests. The plan comes after approval. |

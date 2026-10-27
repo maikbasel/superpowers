@@ -631,3 +631,40 @@ corrected, at the first message rather than after 105 green tests.
 Regression with the change, 5 runs each: S1 and S2 still write a draft
 with Behaviours and hand off to writing-adrs (10/10), S3 names the
 usage picture again (5/5).
+
+## writing-adrs: no ADRs about how the work gets done
+
+### Scenario (S3)
+
+The kata run's draft, committed in the empty kata project. Its approach
+section picks ways of working (strict outside-in, hand-written fakes,
+one acceptance test per slice, commit every TDD step) next to software
+decisions (injected clock and console, rounding, strict parsing). Checks
+on the ADR titles: none about how to work, and the software ones still
+there.
+
+### Baseline (the skill before this change)
+
+0/5. Every run wrote three or four ADRs about how to work: "Build
+strictly outside-in", "Use hand-written fakes and spies, not a mocking
+library", "One acceptance test per vertical slice", "Commit every TDD
+step, allowing RED commits". The trigger is "The approach your human
+partner picked is always one": the approach picked was a way of working.
+
+### GREEN
+
+"One ADR per real decision about the software", "the approach ... picked
+for the software", and a line under "Not an ADR": how the work gets done
+where this workflow settles it (tests first, outside-in, hand-written
+test doubles, how tests are split, commit rhythm); a departure from the
+workflow (a mocking library, Gherkin) is an ADR. Plus a Red Flags row.
+
+| | S1 (n=5) | S2 (n=5) | S3 (n=5) |
+|---|---|---|---|
+| Every writing-adrs check | 5 | 5 | 5 |
+| ADRs about how to work | 0 | 0 | 0 (was 3–4 per run) |
+| Software ADRs kept | 4–5 per run, as before | 2–3, as before | 2–4 per run: clock, console, rounding, parsing |
+
+Two check fixes on the way: "ignored" matched `red`, and one S2 run wrote
+`## Supersedes` as a heading in 0001's format, which the check didn't
+read. Both runs were right.
