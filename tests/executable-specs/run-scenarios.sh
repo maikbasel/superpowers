@@ -81,6 +81,13 @@ commit_all() {
 make_project() {
     local scenario="$1" dir="$2"
     mkdir -p "$dir"
+    # brainstorming s3 starts a kata from an empty Maven project and its brief.
+    if [ "$SKILL:$scenario" = "brainstorming:s3" ]; then
+        cp -R "$SCRIPT_DIR/fixtures/social-kata/." "$dir/"
+        git -C "$dir" init -q
+        commit_all "$dir" "Social networking kata: brief, Maven project, Java 21"
+        return 0
+    fi
     cp -R "$SCRIPT_DIR/fixtures/club-voting/." "$dir/"
     git -C "$dir" init -q
     commit_all "$dir" "club voting: rounds, votes, tally, acceptance DSL"
@@ -183,7 +190,11 @@ prompt_for() {
     local scenario="$1" dir="$2" transcript
     case "$SKILL" in
         brainstorming)
-            [ "$scenario" = "s1" ] && transcript=s1-proxy-voting.md || transcript=s2-late-joiners.md
+            case "$scenario" in
+                s1) transcript=s1-proxy-voting.md ;;
+                s2) transcript=s2-late-joiners.md ;;
+                s3) transcript=s3-social-kata.md ;;
+            esac
             cat <<EOF
 You are the coding agent in an ongoing session with your human partner. You are using the \`brainstorming\` skill. Its full text is at $SKILL_DIR/brainstorming/SKILL.md (supporting files next to it). Read it first and follow it.
 
@@ -344,6 +355,13 @@ check_run() {
         brainstorming)
             local draft
             draft=$(ls "$dir"/docs/superpowers/specs/*.md 2>/dev/null | head -1 || true)
+            if [ "$scenario" = "s3" ]; then
+                # The first reply must say how the app is used: everyone at one
+                # console, or each user at their own terminal.
+                echo "usage_assumption_named=$(yn grep -qiE 'one (console|terminal|session|prompt)|single (console|terminal|session)|same (console|terminal|session|prompt)|(own|separate|several|multiple|different) (terminals?|consoles?|machines?|sessions?)|log(s|ged)? ?in|one person types|types? (for|as) (every|each|all)|multi-?user' "$out")"
+                echo "no_code_touched=$(yn test -z "$(git -C "$dir" status --porcelain -- src pom.xml)")"
+                return 0
+            fi
             echo "draft_written=$(yn test -n "$draft")"
             echo "has_behaviours=$(yn grep -qiE '^#+ *behaviou?rs' "${draft:-/dev/null}")"
             echo "next_is_writing_adrs=$(yn grep -qi 'writing-adrs' <<<"$next")"
@@ -529,7 +547,7 @@ $(cat "$SCRIPT_DIR/inputs/pressure/$SKILL-$pressure.md")
 }
 
 case "$SKILL" in
-    brainstorming) ALL="s1 s2" PRESSURE="p1" ;;
+    brainstorming) ALL="s1 s2 s3" PRESSURE="p1" ;;
     writing-adrs) ALL="s1 s2" PRESSURE="p1 p2" ;;
     writing-acceptance-tests) ALL="s1 s2 s3" PRESSURE="p1 p2 p3" ;;
     writing-plans) ALL="s1 s2" PRESSURE="p1 p2" ;;

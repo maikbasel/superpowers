@@ -596,3 +596,38 @@ assumptions that decide what the thing is for (who uses it, where, how
 many at once). One sentence there ("one console, you type for every
 user") would have caught it at the start. A candidate change with its
 own RED/GREEN; one observation so far.
+
+## brainstorming: say how it will be used
+
+### Scenario (S3)
+
+The kata run's opening: an empty Maven project with `KATA.md`, and the
+human partner's first message "Let's build the social networking kata in
+KATA.md". The check reads the first reply: does it say how the app is
+used (everyone typing at one console, or each user at their own
+terminal)? It reads "no" on the real kata session's first reply.
+
+### RED (fork text before this change, `BASE_REF=HEAD`)
+
+0/5 named it. Every run listed fine-grained gaps instead (unknown users,
+"1 minute" vs "1 minutes", following twice) and asked about one of
+them, or "practice kata or working app?". None said that one person
+would type for every user, which is the reading all five, like the kata
+run, then built on.
+
+### GREEN
+
+One sentence in Your First Message, after echoing the request: say in
+one plain sentence how you picture it being used (who sits where, how
+many at once, through what), even when the usual reading seems obvious.
+
+5/5 named it: "I picture one person at one terminal, typing commands as
+Alice, Bob and Charlie in turn". Three invited the correction outright
+("If you see it differently (several people connecting at once...),
+that changes the design a lot"). The question that follows is still the
+partner's to answer; the picture is now on the table where it can be
+corrected, at the first message rather than after 105 green tests.
+
+Regression with the change, 5 runs each: S1 and S2 still write a draft
+with Behaviours and hand off to writing-adrs (10/10), S3 names the
+usage picture again (5/5).

@@ -111,3 +111,9 @@ creates or modifies an approved test or ADR; no code is written. S2
 also: the plan fixes `RoundTest`, a unit test ADR 2 breaks. `p1` makes
 the approved `nonMemberIsRefused` contradict ADR 3: the hand-back must
 name it. Plans take longer; run with `TIMEOUT=900`.
+
+**brainstorming s3** starts the Social Networking kata from
+`fixtures/social-kata` (an empty Maven project and `KATA.md`) with only
+the partner's first message. The first reply must say how the app is
+used: one console where one person types for every user, or each user
+at their own terminal.
