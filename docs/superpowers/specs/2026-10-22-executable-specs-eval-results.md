@@ -743,3 +743,49 @@ partner chose fakes over Java's usual Mockito, a project decision), plus
 the clock and console ADRs. No ADR on outside-in, slices or commits,
 except one run that folded outside-in into its fakes ADR ("Drive the
 design outside-in with hand-written test doubles"). Left at that.
+
+## writing-acceptance-tests: acceptance tests in their own stage
+
+### Scenario (S4)
+
+The kata project before any acceptance test: draft committed, three
+Proposed ADRs (fakes, clock, console). The prompt names no Maven goal.
+Checks after the agent hands back: `mvn test` (the commit stage) green;
+`mvn verify` red with "not implemented".
+
+### Baseline (the skill before this change)
+
+0/5 kept the commit stage green. No run set up a stage of its own (no
+Failsafe, no tags); every new acceptance test failed inside `mvn test`,
+as in kata run 1, where the build stayed red across commits and an ADR
+("commit every TDD step, red included") papered over it.
+
+### GREEN
+
+A section "Their own stage": unit tests run on every commit and stay
+green; acceptance tests run in a stage of their own, red until their task
+turns them green; if the project has none, set one up the build's usual
+way (Maven: Failsafe and `mvn verify`; Gradle: a separate test task; npm:
+a separate script). "Fail for the right reason" now runs that stage and
+checks the unit run is green. A Red Flags row.
+
+| | S1 | S2 | S3 | S4 |
+|---|---|---|---|---|
+| Every scenario check | 5 | 5 | 3 (see below) | 5 |
+| Stage set up (Surefire excludes `acceptance/**`, Failsafe runs `*AcceptanceTest` under `verify`) | 5 | 5 | given | 5 |
+| `mvn test` green, acceptance red "not implemented" | 5 | 5 | 5 | 5 |
+
+The script's suite run is now `mvn verify` over both report folders, so
+acceptance tests a run moves into Failsafe still count.
+
+S3 needed its input updated. Its tests were prepared before this rule,
+without a stage, so in the first rerun two agents set one up after the
+partner's "Approved" and held the commit to show that change. In the
+real flow the stage exists before approval is asked, so S3 now starts
+with the staged `pom.xml`. In the second rerun, three runs committed
+ADRs, tests and `pom.xml` in one commit; two held the commit because
+behaviour 5 ("a refused vote leaves an earlier vote by the same member
+untouched") has no test. That's right: the S3 input tests leave it out
+without saying so, because it can't occur under the snapshot rule, and
+the agent caught it before committing. A gap in my input, not a
+regression.

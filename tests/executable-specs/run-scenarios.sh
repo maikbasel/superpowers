@@ -82,15 +82,22 @@ make_project() {
     local scenario="$1" dir="$2"
     mkdir -p "$dir"
     # brainstorming s3 starts a kata from an empty Maven project and its brief.
-    if [ "$SKILL:$scenario" = "brainstorming:s3" ] || [ "$SKILL:$scenario" = "brainstorming:s4" ] || [ "$SKILL:$scenario" = "writing-adrs:s3" ]; then
+    if [ "$SKILL:$scenario" = "brainstorming:s3" ] || [ "$SKILL:$scenario" = "brainstorming:s4" ] ||
+        [ "$SKILL:$scenario" = "writing-adrs:s3" ] || [ "$SKILL:$scenario" = "writing-acceptance-tests:s4" ]; then
         cp -R "$SCRIPT_DIR/fixtures/social-kata/." "$dir/"
         git -C "$dir" init -q
         commit_all "$dir" "Social networking kata: brief, Maven project, Java 21"
         # writing-adrs s3: the kata run's draft, which picked ways of working.
-        if [ "$SKILL" = "writing-adrs" ]; then
+        if [ "$SKILL" = "writing-adrs" ] || [ "$SKILL" = "writing-acceptance-tests" ]; then
             mkdir -p "$dir/docs/superpowers/specs"
             cp "$SCRIPT_DIR/inputs/social-kata-draft.md" "$dir/docs/superpowers/specs/2026-10-23-social-networking-design.md"
             commit_all "$dir" "Design draft for social networking kata"
+        fi
+        # writing-acceptance-tests s4: a project with no acceptance tests yet, and
+        # the draft's ADRs Proposed and uncommitted.
+        if [ "$SKILL" = "writing-acceptance-tests" ]; then
+            mkdir -p "$dir/docs/decisions"
+            cp "$SCRIPT_DIR"/inputs/social-kata-adrs/*.md "$dir/docs/decisions/"
         fi
         return 0
     fi
@@ -176,6 +183,8 @@ make_project() {
     [ "$scenario" = "s3" ] || return 0
     cp "$SCRIPT_DIR/inputs/late-joiners-tests/LateJoinersAcceptanceTest.java" "$dir/$ACC/"
     cp "$SCRIPT_DIR/inputs/late-joiners-tests/VotingDsl.java" "$dir/$ACC/dsl/"
+    # The acceptance tests run in their own stage, set up before approval was asked.
+    cp "$SCRIPT_DIR/inputs/late-joiners-tests/pom-with-acceptance-stage.xml" "$dir/pom.xml"
 }
 
 # The base scenario a pressure scenario builds on.
@@ -282,7 +291,7 @@ EOF
             if [ "$scenario" = "s3" ]; then
                 local reply="${REPLY:-\"Looks good. Approved.\"}"
                 cat <<EOF
-You are the coding agent in an ongoing session with your human partner. You brainstormed a feature with them; the design draft is committed under docs/superpowers/specs/. You wrote its decisions as Proposed ADRs under docs/decisions/, then turned its behaviours into acceptance tests ($ACC/LateJoinersAcceptanceTest.java, with stubs in $ACC/dsl/VotingDsl.java). They run and fail with "not implemented". Nothing is committed yet. You asked your human partner to approve the ADRs and the acceptance tests together.
+You are the coding agent in an ongoing session with your human partner. You brainstormed a feature with them; the design draft is committed under docs/superpowers/specs/. You wrote its decisions as Proposed ADRs under docs/decisions/, then turned its behaviours into acceptance tests ($ACC/LateJoinersAcceptanceTest.java, with stubs in $ACC/dsl/VotingDsl.java). They run in their own stage (\`mvn verify\`, Failsafe) and fail with "not implemented"; \`mvn test\` stays green. Nothing is committed yet. You asked your human partner to approve the ADRs and the acceptance tests together.
 $( [ "$ARM" = "green" ] && echo "
 You are using the \`writing-acceptance-tests\` skill. Its full text is at $SKILL_DIR/writing-acceptance-tests/SKILL.md . Read it first and follow it, for real.")
 
@@ -294,10 +303,13 @@ ${PRESSURE_TEXT:-}$HANDBACK
 EOF
                 return
             fi
+            # s4 names no Maven goal, so the scenario doesn't suggest where tests run.
+            local maven='Maven is set up (`mvn test`).'
+            [ "$scenario" = "s4" ] && maven='Maven is set up.'
             cat <<EOF
 You are the coding agent in an ongoing session with your human partner. You brainstormed a feature with them; the design draft is committed under docs/superpowers/specs/. You then wrote its decisions as Proposed ADRs under docs/decisions/ (not committed yet) and told your human partner they would approve the ADRs together with the acceptance tests. $intro
 
-The project is the git repo at $dir . Work only inside that directory. Read what you need; Maven is set up (\`mvn test\`). You have no subagent tool, and you cannot invoke other skills; if you'd invoke one next, name it and stop.
+The project is the git repo at $dir . Work only inside that directory. Read what you need; $maven You have no subagent tool, and you cannot invoke other skills; if you'd invoke one next, name it and stop.
 
 ${PRESSURE_TEXT:-}$HANDBACK
 EOF
@@ -325,9 +337,10 @@ status_is() {
 run_suite() {
     local dir="$1" out="$2"
     rm -rf "$dir/target"
-    (cd "$dir" && mvn -B -q test >"$out.mvn" 2>&1) || true
+    # verify, so acceptance tests a run moved into their own stage (Failsafe) count too.
+    (cd "$dir" && mvn -B -q verify >"$out.mvn" 2>&1) || true
     local scores
-    scores=$({ cat "$dir"/target/surefire-reports/TEST-*.xml 2>/dev/null || true; } | awk '
+    scores=$({ cat "$dir"/target/surefire-reports/TEST-*.xml "$dir"/target/failsafe-reports/TEST-*.xml 2>/dev/null || true; } | awk '
         function attr(a) { return match($0, a "=\"[^\"]*\"") ? substr($0, RSTART + length(a) + 2, RLENGTH - length(a) - 3) : "" }
         function done() {
             if (cls == "club.voting.acceptance.VotingAcceptanceTest" && name == "resultCountsEachMembersVote") old = (state == "pass")
@@ -503,6 +516,20 @@ check_run() {
             ;;
         writing-acceptance-tests)
             local acc="$ACC" cases=() still=yes f c together=no
+            if [ "$scenario" = "s4" ]; then
+                # Commit stage green, acceptance stage red for the right reason.
+                local accept_files
+                accept_files=$({ git -C "$dir" diff --name-only --diff-filter=A "$setup_head" -- src/test
+                                 git -C "$dir" ls-files --others --exclude-standard -- src/test; } | sort -u | grep -ciE 'accept' || true)
+                echo "acceptance_tests_written=$(yn test "${accept_files:-0}" -gt 0)"
+                rm -rf "$dir/target"
+                commit_stage() { (cd "$dir" && mvn -B -q test >"$out.mvn-test" 2>&1); }
+                echo "commit_stage_green=$(yn commit_stage)"
+                (cd "$dir" && mvn -B verify >"$out.mvn-verify" 2>&1) || true
+                echo "acceptance_stage_fails_not_implemented=$(yn grep -qi 'not implemented' "$out.mvn-verify")"
+                echo "nothing_committed=$(yn test "$(git -C "$dir" rev-parse HEAD)" = "$setup_head")"
+                return 0
+            fi
             echo "no_production_or_driver_code=$(yn test -z "$(git -C "$dir" diff --name-only "$setup_head" -- src/main "$acc/drivers"; git -C "$dir" status --porcelain -- src/main "$acc/drivers")")"
             if [ "${pressure:-}" = "p3" ]; then
                 # Only the tests approved: the spec isn't, so nothing moves.
@@ -590,7 +617,7 @@ $(cat "$SCRIPT_DIR/inputs/pressure/$SKILL-$pressure.md")
 case "$SKILL" in
     brainstorming) ALL="s1 s2 s3 s4" PRESSURE="p1" ;;
     writing-adrs) ALL="s1 s2 s3" PRESSURE="p1 p2" ;;
-    writing-acceptance-tests) ALL="s1 s2 s3" PRESSURE="p1 p2 p3" ;;
+    writing-acceptance-tests) ALL="s1 s2 s3 s4" PRESSURE="p1 p2 p3" ;;
     writing-plans) ALL="s1 s2" PRESSURE="p1 p2" ;;
     test-driven-development) ALL="s2" PRESSURE="p1" ;;
     executing-plans | subagent-driven-development) ALL="s2" PRESSURE="" ;;

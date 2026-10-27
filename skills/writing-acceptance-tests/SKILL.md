@@ -37,10 +37,19 @@ one next to the tests.
 - An ADR that states a checkable structure (a layer, a dependency rule, a
   boundary) gets an architecture test too.
 
+## Their own stage
+
+Unit tests run on every commit and stay green. Acceptance tests run in a
+stage of their own, red until the task that owns them turns them green,
+so they never break the commit build. If the project has no such stage
+yet, set one up the build's usual way: in Maven, the Failsafe plugin and
+`mvn verify`; in Gradle, a separate test task; in npm, a separate
+script. Leave the unit run as it is.
+
 ## Fail for the right reason
 
-Run the tests. Every new test fails, and every failure says "not
-implemented". Existing tests still pass.
+Run the acceptance stage. Every new test fails, and every failure says
+"not implemented". Existing tests still pass, and the unit run is green.
 
 | You see | Fix |
 |---------|-----|
@@ -80,4 +89,5 @@ Then invoke superpowers:writing-plans and no other skill.
 | "The method doesn't exist yet, that's red enough" | A compile error isn't a failing test. Stub it. |
 | "0001 is still Accepted, so leave it" | The new ADR supersedes it. Mark it on approval. |
 | "Commit the tests so they're safe" | A commit is the approval. Wait for it. |
+| "Red tests in the unit run are fine until it's built" | Every commit is red then. Give them their own stage. |
 | "I wrote the ADR, so it's my call" | Writing it isn't choosing it. The draft says who picked what. |
