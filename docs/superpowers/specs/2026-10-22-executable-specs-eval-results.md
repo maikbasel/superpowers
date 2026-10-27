@@ -512,3 +512,54 @@ The read-only rule holds here without a skill change. What remains
 untested is the controller's reaction to that BLOCKED, and longer runs
 where context is compacted; the kata run covers both, and hooks
 (design step 10) stay the backstop.
+
+## Kata run 1: Social Networking, end to end
+
+One interactive session, the fork loaded with `--plugin-dir`, the human
+partner playing themselves (8 turns). Repo: `~/IdeaProjects/social-kata`.
+Model claude-opus-5-5, 10 tasks, subagent-driven.
+
+**The chain ran by itself**, from "Let's build the social networking kata
+in KATA.md": brainstorming (with builder check) → writing-adrs →
+writing-acceptance-tests → writing-plans → subagent-driven-development,
+10 tasks, each with an implementer and a reviewer.
+
+| | |
+|---|---|
+| ADRs | 6, all Proposed until approval, then Accepted in one commit with the tests |
+| Acceptance tests at approval | 43 + 2 architecture tests (ADR 0003: only the entry point touches the real clock and console), all red: "not implemented", or no `main` class yet |
+| Approved tests and ADRs changed after approval | 0 lines |
+| Plan | every approved test owned by one task; no behaviour calls |
+| Commits | one per RED, GREEN and REFACTOR step |
+| End state | `mvn test` green: 105 tests (45 acceptance and architecture, 60 unit); 362 lines main, 1077 lines test |
+
+**Good surprises.** The first architecture test any run has written,
+from a checkable ADR. "Do the tests cover all requirements?" before
+approval made the agent check against `KATA.md`, find three real gaps
+(follow and wall never typed as text; the brief never replayed;
+multi-line output never checked) and add tests before the commit.
+
+**Problems found:**
+
+1. **ADRs about how to work.** 0001 (outside-in per slice), 0002 (fakes,
+   no mocking library) and 0004 (commit every step, red included) record
+   ways of working, not the software. writing-adrs says "the approach
+   your human partner picked is always one", and the approach picked in
+   brainstorming was a way of working. 0001 also drifted from the choice
+   (it keeps "unit tests are tied to how classes talk", a mockist
+   consequence, after fakes were chosen).
+2. **The build is red across commits.** Approved acceptance tests are
+   committed red, so `mvn test` fails until the last task; the run
+   committed RED steps on purpose (ADR 0004). The workflow doesn't say
+   how a project keeps its commit build green.
+3. **Test format was never a question.** The code DSL is right by
+   default, but a project might want Gherkin; nothing asks.
+4. **Not observed:** the final whole-branch review (the laptop slept
+   after Task 10's review) and the draft's deletion (not built yet,
+   design step 7). The draft is still in `docs/superpowers/specs/`.
+
+Changes agreed with the human partner from this run, each to go through
+RED/GREEN: no ADRs for how to work; outside-in and hand-written fakes
+built into the workflow; unit tests green on every commit with
+acceptance tests in their own stage; the test format (code DSL or
+Gherkin) chosen once per project, code DSL by default.
