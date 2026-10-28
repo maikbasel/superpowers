@@ -14,7 +14,10 @@ Code generation stays nondeterministic; verification doesn't have to be.
 - Behaviour lives in acceptance tests, written before any code (ATDD,
   outside-in, as Dave Farley teaches it).
 - Decisions and their reasons live in ADRs.
-- The design doc becomes a draft. Its lasting parts move to tests and ADRs.
+- The design doc starts as a draft. On approval it becomes a short spec:
+  intent, goals and constraints in prose, behaviours as references to the
+  acceptance tests, decisions as links to the ADRs. The tests and ADRs
+  bind; the spec says why. Not everything can be a test.
 - The agent may not change approved tests or ADRs to make its work pass.
   Only the human partner can approve a change.
 
@@ -67,7 +70,9 @@ subagents and reviews. We change as little as possible.
    checked. Run them; they fail for the right reason.
 4. Spec approval: ADRs and tests together. On approval, ADRs become
    accepted, the ones they reverse become superseded, and everything is
-   committed. The draft stays: the plan argues from it.
+   committed. The draft becomes the spec in the same commit: prose kept,
+   behaviour lines replaced by the tests that cover them (or "no test"),
+   decisions by ADR links. The plan argues from it.
 5. `writing-plans`: the header lists the ADRs and test files. Each task
    names the acceptance tests it advances; the plan says which task turns
    each one green. A case the spec leaves open where the human partner
@@ -78,9 +83,10 @@ subagents and reviews. We change as little as possible.
    loops inside, acceptance test green.
 7. `subagent-driven-development` and `executing-plans`: read the listed
    ADRs first. Committed tests and ADRs are read-only. Reviewers run the
-   named tests and check the code against the ADRs. When the final
-   review is clean, the draft is deleted with the plan's workspace; the
-   ADRs and tests are the record now.
+   named tests and check the code against the ADRs. The workspace is
+   deleted at the end, as upstream; the spec stays. "The spec is the
+   binding authority" in these skills still reads as upstream: no run
+   has yet let the spec's prose overrule a test or ADR.
 8. Change path: if a test or ADR looks wrong, stop and ask. Continue only
    after approval.
 9. `using-superpowers`: accepted ADRs are binding.

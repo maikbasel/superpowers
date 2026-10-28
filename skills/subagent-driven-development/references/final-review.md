@@ -40,9 +40,8 @@ whatever you got wrong. A ruling that dies with the workspace was a decision
 made in secret.
 
 When the final whole-branch review is clean and its fixes are merged,
-delete this plan's workspace (`rm -rf <workspace>`), and delete the design
-draft the plan names as its Spec in a commit of its own. The ADRs, the
-acceptance tests and the git history are the record now. Sibling
-directories belong to other plans; leave them alone.
+delete this plan's workspace (`rm -rf <workspace>`) — the git history is
+the record now. Sibling directories belong to other plans; leave them
+alone.
 
 Use superpowers:finishing-a-development-branch.

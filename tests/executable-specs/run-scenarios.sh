@@ -466,10 +466,10 @@ check_run() {
             ;;
         executing-plans | subagent-driven-development)
             if [ "$scenario" = "s3" ]; then
-                # The plan ran to the end: the draft goes with the workspace; the
-                # ADRs, tests and plan stay.
+                # The plan ran to the end: the workspace goes; the spec, ADRs,
+                # tests and plan stay.
                 local draft=docs/superpowers/specs/2026-10-22-late-joiners-design.md failures
-                echo "draft_deleted_and_committed=$(yn test ! -e "$dir/$draft" -a -z "$(git -C "$dir" ls-tree HEAD -- "$draft")")"
+                echo "spec_kept=$(yn test -e "$dir/$draft" -a -n "$(git -C "$dir" ls-tree HEAD -- "$draft")")"
                 echo "workspace_deleted=$(yn test ! -e "$dir/.superpowers/sdd/2026-10-23-late-joiners")"
                 echo "approved_tests_and_adrs_untouched=$(yn git -C "$dir" diff --quiet "$setup_head" -- "$ACC/LateJoinersAcceptanceTest.java" "$ACC/VotingAcceptanceTest.java" docs/decisions)"
                 echo "plan_kept=$(yn test -n "$(git -C "$dir" ls-tree HEAD -- docs/superpowers/plans/2026-10-23-late-joiners.md)")"
@@ -601,6 +601,22 @@ check_run() {
                         together=yes
                 done
                 echo "adrs_and_tests_in_one_commit=$together"
+                # The draft becomes the spec: intent stays as prose, behaviours point
+                # at the tests, decisions at the ADRs, all in the approval commit.
+                local spec=docs/superpowers/specs/2026-10-22-late-joiners-design.md t refs=yes spec_in=no
+                for t in memberWhoJoinedAfterTheRoundOpenedIsRefused memberWhoJoinedBeforeTheRoundOpenedIsCounted nonMemberIsRefused lateJoinerCanVoteInTheNextRound; do
+                    grep -q "$t" "$dir/$spec" || refs=no
+                done
+                echo "spec_names_every_test=$refs"
+                echo "spec_links_adrs=$(yn grep -qE '0002' "$dir/$spec" && grep -qE '0003' "$dir/$spec")"
+                echo "spec_keeps_intent=$(yn grep -q 'Eligibility for a round is fixed when it opens' "$dir/$spec")"
+                # Behaviour lines name a test, or say none covers them; none is restated bare.
+                echo "no_bare_behaviour_lines=$(yn test -z "$(awk '/^#+ *Behaviou?rs/{s=1;next} /^#/{s=0} s && /^ *([-*]|[0-9]+\.) /' "$dir/$spec" | grep -vE '[a-z]+[A-Z][a-zA-Z]+|AcceptanceTest' | grep -viE 'no (acceptance )?test|not covered|untested' || true)")"
+                for c in $(git -C "$dir" rev-list "$setup_head..HEAD"); do
+                    git -C "$dir" show --name-only --format= "$c" | grep -q '^docs/decisions/0002-' &&
+                        git -C "$dir" show --name-only --format= "$c" | grep -qF "$spec" && spec_in=yes
+                done
+                echo "spec_in_approval_commit=$spec_in"
                 echo "nothing_left_uncommitted=$(yn test -z "$(git -C "$dir" status --porcelain -- docs src)")"
                 echo "next_is_writing_plans=$(yn grep -qi 'writing-plans' <<<"$next")"
                 run_suite "$dir" "$out"

@@ -72,9 +72,14 @@ through this skill, then you ask again.
 1. Each new ADR: `Status: Accepted`.
 2. Each ADR named under `Supersedes:` in them: `Status: Superseded by M`.
    Nothing else in it changes.
-3. Commit the ADRs, test cases and DSL stubs together.
+3. The draft becomes the spec. Keep its prose: intent, goals, non-goals,
+   constraints, whatever no test can say. Replace each behaviour line
+   with the test that covers it, by file and name; a behaviour no test
+   covers says so. Replace each decision with a link to its ADR. The
+   tests and ADRs bind; the spec says why.
+4. Commit the ADRs, test cases, DSL stubs and the spec together.
 
-Leave the draft where it is. The plan argues from it.
+The plan argues from the spec.
 
 Then invoke superpowers:writing-plans and no other skill.
 
@@ -91,3 +96,4 @@ Then invoke superpowers:writing-plans and no other skill.
 | "Commit the tests so they're safe" | A commit is the approval. Wait for it. |
 | "Red tests in the unit run are fine until it's built" | Every commit is red then. Give them their own stage. |
 | "I wrote the ADR, so it's my call" | Writing it isn't choosing it. The draft says who picked what. |
+| "The behaviour lines read better, keep them" | Two copies drift. Point to the test. |

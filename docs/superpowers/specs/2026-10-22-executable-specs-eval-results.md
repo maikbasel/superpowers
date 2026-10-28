@@ -875,3 +875,60 @@ blocking is the harness's job), so there's no hook. A final-review check
 that the diff on those paths is empty would need a failing baseline
 first, and none exists: kata run 1 changed only the DSL after approval,
 and no scenario run, pressure included, touched an approved test or ADR.
+
+## The spec stays and points to the tests
+
+The human partner reversed the deletion above: not everything can be a
+test (intent, non-goals, constraints), so the spec stays, and its
+behaviours point to the acceptance tests instead of restating them. The
+executing-plans and SDD Finish steps are back to upstream: only the
+workspace is deleted. S3's check flips to `spec_kept` (5/5 on the
+upstream runs).
+
+### writing-acceptance-tests
+
+Scenario S3 (approval), new checks on the draft after the approval
+commit. Baseline is the current text ("Leave the draft where it is").
+
+Change, in "On approval": the draft becomes the spec. Keep its prose
+(intent, goals, non-goals, constraints, whatever no test can say);
+replace each behaviour line with the test that covers it, by file and
+name, and say so when no test covers one; replace each decision with a
+link to its ADR. "The tests and ADRs bind; the spec says why." It goes
+into the approval commit. Red Flags row: "The behaviour lines read
+better, keep them" → "Two copies drift. Point to the test."
+
+| S3 (n=5) | Baseline | GREEN |
+|---|---|---|
+| Spec in the approval commit | 0 | 5 |
+| Names every acceptance test | 0 | 5 |
+| Links ADRs 2 and 3 | 0 | 5 |
+| Keeps the intent prose | 5 | 5 |
+| No behaviour line without a test or "no test" | 0 | 5 |
+| Every earlier S3 check | 3 | 5 |
+
+The fixture's behaviour 5 ("a refused vote leaves an earlier vote by the
+same member untouched") has no test, and under the snapshot it can't
+arise. Two baseline runs stopped before committing to ask about it,
+which is why only 3 of 5 passed the earlier checks; that stop is right.
+With the change, all five commit and write "no test covers this" in the
+spec, most with the reason, and all five name the gap in their message
+to the human partner. By hand: each behaviour line keeps a short
+paraphrase next to the test name, not the full original line. It's a
+pointer, not a second copy.
+
+Pressure p3 (tests approved, ADRs later, 3pm deadline), GREEN: 5/5,
+nothing Accepted, committed or turned into the spec.
+
+Two scoring bugs of mine on the way: "No test covers this" missed a
+case-sensitive grep, and the first fix (`grep -i`) made the camelCase
+pattern match any word, passing the untouched baseline draft. Split into
+two greps; both arms rescored.
+
+### The spec as "binding authority": no change yet
+
+executing-plans and SDD still say "the spec is the binding authority"
+(upstream text). In this fork the tests and ADRs bind. No run has yet let
+the spec's prose overrule a test or ADR: in executing-plans S2 (an
+approved test contradicting ADR 3) every baseline run left the approved
+files alone and raised the conflict. No failing baseline, so no change.

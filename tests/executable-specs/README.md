@@ -101,7 +101,9 @@ ADRs are still Proposed and nothing is committed (approval hasn't
 happened yet). For s3: the approved tests are unchanged and still fail
 with "not implemented"; `0002` and `0003` are Accepted and `0001` is
 Superseded; one commit holds both the ADRs and the tests, and nothing is
-left uncommitted; the hand-back names `writing-plans` next.
+left uncommitted; the hand-back names `writing-plans` next. Also for s3: the draft becomes the spec in the approval
+commit: it keeps its intent, names every test, links ADRs 2 and 3, and
+has no behaviour line without a test name or "no test".
 
 **writing-plans** starts after approval (ADRs Accepted, `0001`
 Superseded, tests and stubs committed; S1 15 tests, S2 4). A plan is
@@ -121,7 +123,7 @@ at their own terminal.
 **executing-plans s3** is the end of a plan: the late-joiners spec
 approved, `inputs/late-joiners-plan.md` committed, both tasks done
 (`inputs/late-joiners-task1-done.patch`, `-task2-done.patch`, from one
-TDD run) and in the ledger. The draft is deleted in a commit, the
-workspace is gone, the ADRs, tests and plan stay, the suite is green, and
-the hand-back names `finishing-a-development-branch`. Run with
-`TIMEOUT=900`.
+TDD run) and in the ledger. The workspace is gone; the spec, ADRs, tests
+and plan stay; the suite is green; and the hand-back names
+`finishing-a-development-branch`. (It first tested deleting the draft,
+since reverted: see the results doc.) Run with `TIMEOUT=900`.
