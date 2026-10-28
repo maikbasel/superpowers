@@ -789,3 +789,43 @@ untouched") has no test. That's right: the S3 input tests leave it out
 without saying so, because it can't occur under the snapshot rule, and
 the agent caught it before committing. A gap in my input, not a
 regression.
+
+## Acceptance test format, chosen once per project
+
+The human partner wanted the format left to the user, once per project:
+code in the project's own test runner (the default) or Gherkin.
+
+### brainstorming
+
+Baseline: 0 of 15 recent kata-start runs (S3, S4) mentioned the format.
+
+Change, next to "Lay out the approaches": if the project has no
+acceptance tests yet, ask with the approaches how they'll be written,
+code (recommended by default: no dependency, any language) or Gherkin
+(worth it when people who don't read code review them, or the team
+already uses Cucumber or similar); if it has acceptance tests, keep
+their format and don't ask.
+
+| | S1 club (n=5) | S2 club (n=5) | S4 kata (n=5) |
+|---|---|---|---|
+| Asks the format | 0 (has a code DSL) | 0 | 5 |
+| Every other brainstorming check | 5 | 5 | 5 |
+
+### writing-acceptance-tests with Gherkin chosen: no change needed
+
+Scenario S5: the kata project before any acceptance test, the draft
+recording "acceptance tests in Gherkin, run with Cucumber (user's
+decision)", and a Proposed ADR for it. Baseline with the unchanged skill,
+5/5 on every check: `.feature` files written (10–26 scenarios per run),
+Cucumber on the build, no undefined steps, `mvn test` green, the
+acceptance stage red with "not implemented". By hand the four layers
+hold: feature files are the test cases in domain words, step definitions
+are the DSL ("The acceptance DSL: domain steps the feature files call.
+Every step is a stub until the plan task that owns it wires a driver"),
+drivers untouched. Once the project has chosen, the skill carries it
+over; the gap was only that nobody asked.
+
+Two more refused rounds on the way (the account's spend limit; the
+`session_ran` flag caught both), and one of mine: three script instances
+sharing one `OUT_DIR` collided while freezing the skill. Runs are now
+started one after another, each with its own directory.

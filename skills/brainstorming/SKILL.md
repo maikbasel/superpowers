@@ -156,6 +156,14 @@ what it rests on. How the work is done (tests first, outside-in from
 acceptance tests, what gets a test double, commit rhythm) is settled
 by this workflow, so it isn't one of them.
 
+**Acceptance test format, once per project.** If the project has no
+acceptance tests yet, ask with the approaches how they'll be written: as
+code in the project's own test runner (recommend this by default: no
+dependency, works in any language), or as Gherkin scenarios (worth it
+when people who don't read code review them, or the team already uses
+Cucumber or a similar tool). If the project has acceptance tests, keep
+their format and don't ask.
+
 **Show, don't tell.** Offer the visual companion (below) whenever seeing
 would help more than reading:
 

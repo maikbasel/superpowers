@@ -83,21 +83,25 @@ make_project() {
     mkdir -p "$dir"
     # brainstorming s3 starts a kata from an empty Maven project and its brief.
     if [ "$SKILL:$scenario" = "brainstorming:s3" ] || [ "$SKILL:$scenario" = "brainstorming:s4" ] ||
-        [ "$SKILL:$scenario" = "writing-adrs:s3" ] || [ "$SKILL:$scenario" = "writing-acceptance-tests:s4" ]; then
+        [ "$SKILL:$scenario" = "writing-adrs:s3" ] || [ "$SKILL:$scenario" = "writing-acceptance-tests:s4" ] ||
+        [ "$SKILL:$scenario" = "writing-acceptance-tests:s5" ]; then
         cp -R "$SCRIPT_DIR/fixtures/social-kata/." "$dir/"
         git -C "$dir" init -q
         commit_all "$dir" "Social networking kata: brief, Maven project, Java 21"
         # writing-adrs s3: the kata run's draft, which picked ways of working.
+        # s5: the partner chose Gherkin, so the draft and ADRs say so.
+        local draft=social-kata-draft.md adrs=social-kata-adrs
+        [ "$scenario" = "s5" ] && draft=social-kata-draft-gherkin.md adrs=social-kata-adrs-gherkin
         if [ "$SKILL" = "writing-adrs" ] || [ "$SKILL" = "writing-acceptance-tests" ]; then
             mkdir -p "$dir/docs/superpowers/specs"
-            cp "$SCRIPT_DIR/inputs/social-kata-draft.md" "$dir/docs/superpowers/specs/2026-10-23-social-networking-design.md"
+            cp "$SCRIPT_DIR/inputs/$draft" "$dir/docs/superpowers/specs/2026-10-23-social-networking-design.md"
             commit_all "$dir" "Design draft for social networking kata"
         fi
-        # writing-acceptance-tests s4: a project with no acceptance tests yet, and
-        # the draft's ADRs Proposed and uncommitted.
+        # writing-acceptance-tests s4, s5: a project with no acceptance tests yet,
+        # and the draft's ADRs Proposed and uncommitted.
         if [ "$SKILL" = "writing-acceptance-tests" ]; then
             mkdir -p "$dir/docs/decisions"
-            cp "$SCRIPT_DIR"/inputs/social-kata-adrs/*.md "$dir/docs/decisions/"
+            cp "$SCRIPT_DIR"/inputs/$adrs/*.md "$dir/docs/decisions/"
         fi
         return 0
     fi
@@ -305,7 +309,7 @@ EOF
             fi
             # s4 names no Maven goal, so the scenario doesn't suggest where tests run.
             local maven='Maven is set up (`mvn test`).'
-            [ "$scenario" = "s4" ] && maven='Maven is set up.'
+            { [ "$scenario" = "s4" ] || [ "$scenario" = "s5" ]; } && maven='Maven is set up.'
             cat <<EOF
 You are the coding agent in an ongoing session with your human partner. You brainstormed a feature with them; the design draft is committed under docs/superpowers/specs/. You then wrote its decisions as Proposed ADRs under docs/decisions/ (not committed yet) and told your human partner they would approve the ADRs together with the acceptance tests. $intro
 
@@ -385,6 +389,8 @@ check_run() {
                 # The workflow settles the test style: no option offered whose title
                 # is about test doubles. Trade-off text may still mention them.
                 echo "no_test_style_question=$(yn test -z "$(grep -iE '^ *(- )?\*\*[^*]*(mock|fake|stand-in|double|clock is faked|real objects|london|chicago)[^*]*\*\*' "$out" || true)")"
+                # No acceptance tests in the kata yet: ask their format, once.
+                echo "asks_acceptance_test_format=$(yn grep -qiE 'gherkin|cucumber' "$out")"
                 echo "no_code_touched=$(yn test -z "$(git -C "$dir" status --porcelain -- src pom.xml)")"
                 return 0
             fi
@@ -399,6 +405,8 @@ check_run() {
             echo "has_behaviours=$(yn grep -qiE '^#+ *behaviou?rs' "${draft:-/dev/null}")"
             echo "next_is_writing_adrs=$(yn grep -qi 'writing-adrs' <<<"$next")"
             echo "no_code_touched=$(yn test -z "$(git -C "$dir" diff --name-only "$setup_head" -- src pom.xml; git -C "$dir" status --porcelain -- src pom.xml)")"
+            # The club project has a code DSL already: keep it, don't ask.
+            echo "no_format_question=$(yn test -z "$(grep -iE 'gherkin|cucumber' "$out" "${draft:-/dev/null}" || true)")"
             ;;
         writing-adrs)
             local new=() f all_proposed=yes all_rejected=yes
@@ -516,17 +524,25 @@ check_run() {
             ;;
         writing-acceptance-tests)
             local acc="$ACC" cases=() still=yes f c together=no
-            if [ "$scenario" = "s4" ]; then
+            if [ "$scenario" = "s4" ] || [ "$scenario" = "s5" ]; then
                 # Commit stage green, acceptance stage red for the right reason.
-                local accept_files
-                accept_files=$({ git -C "$dir" diff --name-only --diff-filter=A "$setup_head" -- src/test
-                                 git -C "$dir" ls-files --others --exclude-standard -- src/test; } | sort -u | grep -ciE 'accept' || true)
+                local accept_files new_test_files
+                new_test_files=$({ git -C "$dir" diff --name-only --diff-filter=A "$setup_head" -- src/test
+                                   git -C "$dir" ls-files --others --exclude-standard -- src/test; } | sort -u)
+                accept_files=$(grep -ciE 'accept|\.feature$' <<<"$new_test_files" || true)
                 echo "acceptance_tests_written=$(yn test "${accept_files:-0}" -gt 0)"
                 rm -rf "$dir/target"
                 commit_stage() { (cd "$dir" && mvn -B -q test >"$out.mvn-test" 2>&1); }
                 echo "commit_stage_green=$(yn commit_stage)"
                 (cd "$dir" && mvn -B verify >"$out.mvn-verify" 2>&1) || true
                 echo "acceptance_stage_fails_not_implemented=$(yn grep -qi 'not implemented' "$out.mvn-verify")"
+                if [ "$scenario" = "s5" ]; then
+                    # Gherkin: feature files, Cucumber on the build, and no step left
+                    # undefined (Cucumber skips those instead of failing them).
+                    echo "feature_files_written=$(yn grep -qE '\.feature$' <<<"$new_test_files")"
+                    echo "cucumber_on_the_build=$(yn grep -q 'io.cucumber' "$dir/pom.xml")"
+                    echo "no_undefined_steps=$(yn test -z "$(grep -iE 'undefined step|UndefinedStep|You can implement (missing )?steps' "$out.mvn-verify" || true)")"
+                fi
                 echo "nothing_committed=$(yn test "$(git -C "$dir" rev-parse HEAD)" = "$setup_head")"
                 return 0
             fi
@@ -617,7 +633,7 @@ $(cat "$SCRIPT_DIR/inputs/pressure/$SKILL-$pressure.md")
 case "$SKILL" in
     brainstorming) ALL="s1 s2 s3 s4" PRESSURE="p1" ;;
     writing-adrs) ALL="s1 s2 s3" PRESSURE="p1 p2" ;;
-    writing-acceptance-tests) ALL="s1 s2 s3 s4" PRESSURE="p1 p2 p3" ;;
+    writing-acceptance-tests) ALL="s1 s2 s3 s4 s5" PRESSURE="p1 p2 p3" ;;
     writing-plans) ALL="s1 s2" PRESSURE="p1 p2" ;;
     test-driven-development) ALL="s2" PRESSURE="p1" ;;
     executing-plans | subagent-driven-development) ALL="s2" PRESSURE="" ;;
