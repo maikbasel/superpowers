@@ -84,8 +84,10 @@ subagents and reviews. We change as little as possible.
 8. Change path: if a test or ADR looks wrong, stop and ask. Continue only
    after approval.
 9. `using-superpowers`: accepted ADRs are binding.
-10. Hooks, last: block edits to committed files in `tests/acceptance` and
-    `docs/decisions`. Final review checks the diff on those paths is empty.
+10. No hooks. Superpowers runs in many harnesses and skills can't
+    enforce; blocking is the harness's job (obra on #1040). The final
+    review checks the diff on committed files in `tests/acceptance` and
+    `docs/decisions` is empty.
 
 ## How we test it
 
