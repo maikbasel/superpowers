@@ -33,10 +33,18 @@ subagents and reviews. We change as little as possible.
 
 ## Decisions
 
-- **Test format:** Farley's four layers, as plain code in the project's own
-  test runner: test cases in domain words, a DSL, protocol drivers, the
-  system. No Gherkin, so no extra dependency. Skills teach the pattern;
-  each project grows its own DSL.
+- **Test format:** Farley's four layers: test cases in domain words, a
+  DSL, protocol drivers, the system. Chosen once per project: plain code
+  in the project's own test runner by default (no dependency, any
+  language), or Gherkin when the partner wants it (the scenarios are the
+  test cases, step definitions the DSL). Skills teach the pattern; each
+  project grows its own DSL.
+- **How the work is done is the workflow's:** tests first, outside-in
+  from acceptance tests, test doubles only at boundaries and for
+  collaborators that don't exist yet (made the ecosystem's way), unit
+  tests green on every commit with acceptance tests in their own stage.
+  ADRs record the software; a project that departs from the workflow
+  records the departure.
 - **One spec approval.** The human partner approves ADRs and acceptance
   tests together, then the plan. The draft design doc isn't approved.
 - **Commit is approval.** Approved tests and ADRs are committed. Committed
