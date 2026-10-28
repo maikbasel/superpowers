@@ -117,3 +117,11 @@ name it. Plans take longer; run with `TIMEOUT=900`.
 the partner's first message. The first reply must say how the app is
 used: one console where one person types for every user, or each user
 at their own terminal.
+
+**executing-plans s3** is the end of a plan: the late-joiners spec
+approved, `inputs/late-joiners-plan.md` committed, both tasks done
+(`inputs/late-joiners-task1-done.patch`, `-task2-done.patch`, from one
+TDD run) and in the ledger. The draft is deleted in a commit, the
+workspace is gone, the ADRs, tests and plan stay, the suite is green, and
+the hand-back names `finishing-a-development-branch`. Run with
+`TIMEOUT=900`.

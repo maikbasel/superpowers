@@ -1,0 +1,60 @@
+diff --git a/src/test/java/club/voting/acceptance/drivers/LibraryDriver.java b/src/test/java/club/voting/acceptance/drivers/LibraryDriver.java
+index 80255c9..ec5d59a 100644
+--- a/src/test/java/club/voting/acceptance/drivers/LibraryDriver.java
++++ b/src/test/java/club/voting/acceptance/drivers/LibraryDriver.java
+@@ -1,14 +1,23 @@
+ package club.voting.acceptance.drivers;
+ 
+ import club.voting.Club;
++import club.voting.Round;
++import java.util.HashMap;
++import java.util.Map;
+ 
+ /** Protocol driver: reaches the system through its Java API. */
+ public class LibraryDriver {
+     private final Club club = new Club();
++    private final Map<String, Round.VoteResult> voteResults = new HashMap<>();
+ 
+     public void join(String member) { club.join(member); }
+     public void openRound(String proposal) { club.openRound(proposal); }
+-    public void vote(String member, String proposal, boolean yes) { club.round(proposal).vote(member, yes); }
++    public void vote(String member, String proposal, boolean yes) {
++        voteResults.put(member + "|" + proposal, club.round(proposal).vote(member, yes));
++    }
++    public Round.VoteResult lastVoteResult(String member, String proposal) {
++        return voteResults.get(member + "|" + proposal);
++    }
+     public void closeRound(String proposal) { club.round(proposal).close(); }
+     public int yesVotes(String proposal) { return club.round(proposal).tally().yes(); }
+     public int noVotes(String proposal) { return club.round(proposal).tally().no(); }
+diff --git a/src/test/java/club/voting/acceptance/dsl/VotingDsl.java b/src/test/java/club/voting/acceptance/dsl/VotingDsl.java
+index 57ab0ea..001fc81 100644
+--- a/src/test/java/club/voting/acceptance/dsl/VotingDsl.java
++++ b/src/test/java/club/voting/acceptance/dsl/VotingDsl.java
+@@ -1,5 +1,6 @@
+ package club.voting.acceptance.dsl;
+ 
++import club.voting.Round;
+ import club.voting.acceptance.drivers.LibraryDriver;
+ import static org.junit.jupiter.api.Assertions.*;
+ 
+@@ -16,9 +17,17 @@ public class VotingDsl {
+         assertEquals(no, driver.noVotes(proposal));
+     }
+     public void assertVoteRefused(String member, String proposal, String reason) {
+-        throw new UnsupportedOperationException("not implemented: assertVoteRefused");
++        var result = castVote(member, proposal);
++        assertFalse(result.accepted(), member + "'s vote on " + proposal + " was accepted");
++        assertEquals(reason, result.reason());
+     }
+     public void assertVoteAccepted(String member, String proposal) {
+-        throw new UnsupportedOperationException("not implemented: assertVoteAccepted");
++        var result = castVote(member, proposal);
++        assertTrue(result.accepted(), member + "'s vote on " + proposal + " was refused: " + result.reason());
++    }
++    private Round.VoteResult castVote(String member, String proposal) {
++        var result = driver.lastVoteResult(member, proposal);
++        assertNotNull(result, member + " has not voted on " + proposal);
++        return result;
+     }
+ }

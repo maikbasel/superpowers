@@ -85,9 +85,9 @@ subagents and reviews. We change as little as possible.
    after approval.
 9. `using-superpowers`: accepted ADRs are binding.
 10. No hooks. Superpowers runs in many harnesses and skills can't
-    enforce; blocking is the harness's job (obra on #1040). The final
-    review checks the diff on committed files in `tests/acceptance` and
-    `docs/decisions` is empty.
+    enforce; blocking is the harness's job (obra on #1040). A final-review
+    check that the diff on approved tests and ADRs is empty waits for a
+    run that changes one: so far none has.
 
 ## How we test it
 

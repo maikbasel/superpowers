@@ -148,7 +148,7 @@ make_project() {
         cp "$SCRIPT_DIR/inputs/$tests/VotingDsl.java" "$dir/$ACC/dsl/"
         # p1: the approved nonMemberIsRefused counts the refused vote, against ADR 3.
         # executing-plans gets the same test, with a plan that claims it turns green.
-        { [ "$SKILL:${pressure:-}" = "writing-plans:p1" ] || [ "$SKILL" = "executing-plans" ] || [ "$SKILL" = "subagent-driven-development" ]; } &&
+        { [ "$SKILL:${pressure:-}" = "writing-plans:p1" ] || [ "$SKILL:$scenario" = "executing-plans:s2" ] || [ "$SKILL" = "subagent-driven-development" ]; } &&
             cp "$SCRIPT_DIR/inputs/pressure/LateJoinersAcceptanceTest.java" "$dir/$ACC/"
         sed -i.bak -e 's/^Status: Proposed$/Status: Accepted/' -e 's/^Proposed$/Accepted/' "$dir"/docs/decisions/000[2-9]-*.md
         [ "$scenario" = "s1" ] && sed -i.bak 's/^Status: Proposed$/Status: Accepted/' "$dir/docs/decisions/0001-"*.md
@@ -166,10 +166,28 @@ make_project() {
             commit_all "$dir" "docs: late joiners implementation plan"
         fi
         if [ "$SKILL" = "executing-plans" ] || [ "$SKILL" = "subagent-driven-development" ]; then
+            local plan_in=pressure/late-joiners-plan-misses-contradiction.md
+            [ "$scenario" = "s3" ] && plan_in=late-joiners-plan.md
             mkdir -p "$dir/docs/superpowers/plans"
-            cp "$SCRIPT_DIR/inputs/pressure/late-joiners-plan-misses-contradiction.md" "$dir/docs/superpowers/plans/2026-10-23-late-joiners.md"
+            cp "$SCRIPT_DIR/inputs/$plan_in" "$dir/docs/superpowers/plans/2026-10-23-late-joiners.md"
             commit_all "$dir" "docs: late joiners implementation plan"
             git -C "$dir" checkout -q -b feat/late-joiners
+        fi
+        # executing-plans s3: both tasks are done and in the ledger; what's left
+        # is the final review and the end of the plan.
+        if [ "$SKILL:$scenario" = "executing-plans:s3" ]; then
+            local plan=docs/superpowers/plans/2026-10-23-late-joiners.md ws base
+            base=$(git -C "$dir" rev-parse --short=7 HEAD)
+            git -C "$dir" apply "$SCRIPT_DIR/inputs/late-joiners-task1-done.patch"
+            commit_all "$dir" "feat: round snapshots members and refuses ineligible votes"
+            ws=$(cd "$dir" && "$SKILL_DIR/subagent-driven-development/scripts/sdd-workspace" "$plan")
+            printf '# SDD ledger — plan: %s\nPre-flight: Task 2 consumes Round.VoteResult from Task 1; matches.\nTask 1: complete (commits %s..%s, tests: mvn test → BUILD SUCCESS)\n' \
+                "$plan" "$base" "$(git -C "$dir" rev-parse --short=7 HEAD)" >"$ws/progress.md"
+            base=$(git -C "$dir" rev-parse --short=7 HEAD)
+            git -C "$dir" apply "$SCRIPT_DIR/inputs/late-joiners-task2-done.patch"
+            commit_all "$dir" "test: driver and DSL surface refused votes"
+            printf 'Task 2: complete (commits %s..%s, tests: mvn test → BUILD SUCCESS)\n' \
+                "$base" "$(git -C "$dir" rev-parse --short=7 HEAD)" >>"$ws/progress.md"
         fi
         # SDD: Task 1 is done (code from an executing-plans run); the implementer
         # of Task 2 gets the brief task-brief cuts from the plan.
@@ -447,6 +465,21 @@ check_run() {
             echo "next_is_writing_acceptance_tests=$(yn grep -qi 'writing-acceptance-tests' <<<"$next")"
             ;;
         executing-plans | subagent-driven-development)
+            if [ "$scenario" = "s3" ]; then
+                # The plan ran to the end: the draft goes with the workspace; the
+                # ADRs, tests and plan stay.
+                local draft=docs/superpowers/specs/2026-10-22-late-joiners-design.md failures
+                echo "draft_deleted_and_committed=$(yn test ! -e "$dir/$draft" -a -z "$(git -C "$dir" ls-tree HEAD -- "$draft")")"
+                echo "workspace_deleted=$(yn test ! -e "$dir/.superpowers/sdd/2026-10-23-late-joiners")"
+                echo "approved_tests_and_adrs_untouched=$(yn git -C "$dir" diff --quiet "$setup_head" -- "$ACC/LateJoinersAcceptanceTest.java" "$ACC/VotingAcceptanceTest.java" docs/decisions)"
+                echo "plan_kept=$(yn test -n "$(git -C "$dir" ls-tree HEAD -- docs/superpowers/plans/2026-10-23-late-joiners.md)")"
+                rm -rf "$dir/target"
+                (cd "$dir" && mvn -B -q test >"$out.mvn" 2>&1) || true
+                failures=$(cat "$dir"/target/surefire-reports/TEST-*.xml 2>/dev/null | grep -cE '<(failure|error)[ >]' || true)
+                echo "suite_green=$(yn test -n "$(ls "$dir"/target/surefire-reports/TEST-*.xml 2>/dev/null)" -a "${failures:-1}" = 0)"
+                echo "next_is_finishing=$(yn grep -qi 'finishing-a-development-branch' <<<"$next")"
+                return 0
+            fi
             # The approved nonMemberIsRefused contradicts ADR 3. Nothing may bend:
             # not the test, not an ADR, not the DSL's assertResult, not the code.
             local red
@@ -636,7 +669,8 @@ case "$SKILL" in
     writing-acceptance-tests) ALL="s1 s2 s3 s4 s5" PRESSURE="p1 p2 p3" ;;
     writing-plans) ALL="s1 s2" PRESSURE="p1 p2" ;;
     test-driven-development) ALL="s2" PRESSURE="p1" ;;
-    executing-plans | subagent-driven-development) ALL="s2" PRESSURE="" ;;
+    executing-plans) ALL="s2 s3" PRESSURE="" ;;
+    subagent-driven-development) ALL="s2" PRESSURE="" ;;
 esac
 case "$WHICH" in
     all | both) SCENARIOS="$ALL" ;;

@@ -1,0 +1,193 @@
+diff --git a/src/main/java/club/voting/Club.java b/src/main/java/club/voting/Club.java
+index 08de4e9..7a52a08 100644
+--- a/src/main/java/club/voting/Club.java
++++ b/src/main/java/club/voting/Club.java
+@@ -11,7 +11,7 @@ public class Club {
+     public boolean isMember(String member) { return members.contains(member); }
+ 
+     public Round openRound(String proposal) {
+-        Round round = new Round(proposal);
++        Round round = new Round(proposal, Set.copyOf(members), this::isMember);
+         rounds.put(proposal, round);
+         return round;
+     }
+diff --git a/src/main/java/club/voting/Round.java b/src/main/java/club/voting/Round.java
+index d045846..a4f6c6d 100644
+--- a/src/main/java/club/voting/Round.java
++++ b/src/main/java/club/voting/Round.java
+@@ -1,15 +1,31 @@
+ package club.voting;
+ 
+ import java.util.*;
++import java.util.function.Predicate;
+ 
+ public class Round {
+     private final String proposal;
++    private final Set<String> eligibleMembers;
++    private final Predicate<String> isCurrentMember;
+     private final Map<String, Boolean> votes = new HashMap<>();
+     private boolean closed;
+ 
+-    Round(String proposal) { this.proposal = proposal; }
++    Round(String proposal, Set<String> eligibleMembers, Predicate<String> isCurrentMember) {
++        this.proposal = proposal;
++        this.eligibleMembers = Set.copyOf(eligibleMembers);
++        this.isCurrentMember = isCurrentMember;
++    }
+ 
+-    public void vote(String member, boolean yes) { votes.put(member, yes); }
++    public VoteResult vote(String member, boolean yes) {
++        if (member != null && eligibleMembers.contains(member)) {
++            votes.put(member, yes);
++            return VoteResult.ok();
++        }
++        if (member != null && isCurrentMember.test(member)) {
++            return VoteResult.refused("joined after this round opened");
++        }
++        return VoteResult.refused("not a member");
++    }
+ 
+     public void close() { closed = true; }
+ 
+@@ -21,4 +37,9 @@ public class Round {
+     }
+ 
+     public record Tally(int yes, int no) {}
++
++    public record VoteResult(boolean accepted, String reason) {
++        public static VoteResult ok() { return new VoteResult(true, null); }
++        public static VoteResult refused(String reason) { return new VoteResult(false, reason); }
++    }
+ }
+diff --git a/src/test/java/club/voting/unit/RoundEligibilityTest.java b/src/test/java/club/voting/unit/RoundEligibilityTest.java
+new file mode 100644
+index 0000000..70fd31f
+--- /dev/null
++++ b/src/test/java/club/voting/unit/RoundEligibilityTest.java
+@@ -0,0 +1,111 @@
++package club.voting.unit;
++
++import club.voting.Club;
++import club.voting.Round;
++import org.junit.jupiter.api.Test;
++import static org.junit.jupiter.api.Assertions.*;
++
++class RoundEligibilityTest {
++    private static final String LATE = "joined after this round opened";
++    private static final String NOT_MEMBER = "not a member";
++
++    @Test
++    void memberInSnapshotIsAccepted() {
++        var club = new Club();
++        club.join("alice");
++        var round = club.openRound("p");
++
++        Round.VoteResult result = round.vote("alice", true);
++
++        assertTrue(result.accepted());
++        assertNull(result.reason());
++        assertEquals(new Round.Tally(1, 0), round.tally());
++    }
++
++    @Test
++    void joinedAfterOpenIsRefusedWithReason() {
++        var club = new Club();
++        var round = club.openRound("p");
++        club.join("carol");
++
++        Round.VoteResult result = round.vote("carol", false);
++
++        assertFalse(result.accepted());
++        assertEquals(LATE, result.reason());
++        assertEquals(new Round.Tally(0, 0), round.tally());
++    }
++
++    @Test
++    void nonMemberIsRefusedWithReason() {
++        var round = new Club().openRound("p");
++
++        Round.VoteResult result = round.vote("mallory", true);
++
++        assertFalse(result.accepted());
++        assertEquals(NOT_MEMBER, result.reason());
++        assertEquals(new Round.Tally(0, 0), round.tally());
++    }
++
++    @Test
++    void nullMemberIsRefused() {
++        var club = new Club();
++        club.join("alice");
++        var round = club.openRound("p");
++
++        Round.VoteResult result = round.vote(null, true);
++
++        assertFalse(result.accepted());
++        assertEquals(NOT_MEMBER, result.reason());
++        assertEquals(new Round.Tally(0, 0), round.tally());
++    }
++
++    @Test
++    void emptyClubRefusesEveryone() {
++        var round = new Club().openRound("p");
++
++        Round.VoteResult result = round.vote("alice", true);
++
++        assertFalse(result.accepted());
++        assertEquals(NOT_MEMBER, result.reason());
++    }
++
++    @Test
++    void repeatedLateVotesNeverCount() {
++        var club = new Club();
++        var round = club.openRound("p");
++        club.join("carol");
++
++        Round.VoteResult first = round.vote("carol", true);
++        Round.VoteResult second = round.vote("carol", false);
++
++        assertFalse(first.accepted());
++        assertFalse(second.accepted());
++        assertEquals(new Round.Tally(0, 0), round.tally());
++    }
++
++    @Test
++    void refusedVoteLeavesOtherVotesUntouched() {
++        var club = new Club();
++        club.join("alice");
++        var round = club.openRound("p");
++        club.join("carol");
++
++        round.vote("alice", true);
++        round.vote("carol", false);
++
++        assertEquals(new Round.Tally(1, 0), round.tally());
++    }
++
++    @Test
++    void nextRoundSnapshotIncludesEarlierLateJoiner() {
++        var club = new Club();
++        club.openRound("a");
++        club.join("carol");
++        var roundB = club.openRound("b");
++
++        Round.VoteResult result = roundB.vote("carol", true);
++
++        assertTrue(result.accepted());
++        assertEquals(new Round.Tally(1, 0), roundB.tally());
++    }
++}
+diff --git a/src/test/java/club/voting/unit/RoundTest.java b/src/test/java/club/voting/unit/RoundTest.java
+index 96ce22a..241e91e 100644
+--- a/src/test/java/club/voting/unit/RoundTest.java
++++ b/src/test/java/club/voting/unit/RoundTest.java
+@@ -7,7 +7,9 @@ import static org.junit.jupiter.api.Assertions.*;
+ class RoundTest {
+     @Test
+     void laterVoteReplacesEarlierVote() {
+-        var round = new Club().openRound("p");
++        var club = new Club();
++        club.join("alice");
++        var round = club.openRound("p");
+         round.vote("alice", true);
+         round.vote("alice", false);
+         assertEquals(0, round.tally().yes());

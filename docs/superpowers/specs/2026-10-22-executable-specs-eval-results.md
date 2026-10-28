@@ -829,3 +829,49 @@ Two more refused rounds on the way (the account's spend limit; the
 `session_ran` flag caught both), and one of mine: three script instances
 sharing one `OUT_DIR` collided while freezing the skill. Runs are now
 started one after another, each with its own directory.
+
+## The draft is deleted at the end
+
+The design doc says the draft goes with the plan's workspace once the
+final review is clean. Kata run 1 left
+`docs/superpowers/specs/2026-10-23-social-networking-design.md` in the
+repo after the run, and the execution skills only named the workspace.
+
+### executing-plans
+
+Scenario S3: the late-joiners branch at the end of the plan, both tasks
+committed and in the ledger, the draft committed under
+`docs/superpowers/specs/`. What's left is the final review and the
+finish. No subagent tool, so the review is a self-review.
+
+Change, in Finish (and the flow chart's node): delete the workspace "and
+delete the design draft the plan names as its Spec in a commit of its
+own. The ADRs, the acceptance tests and the git history are the record
+now."
+
+| S3 (n=5) | RED | GREEN |
+|---|---|---|
+| Draft deleted, in a commit | 0 | 5 |
+| Workspace deleted | 5 | 5 |
+| Approved tests and ADRs untouched | 5 | 5 |
+| Plan kept | 5 | 5 |
+| Suite green | 5 | 5 |
+| Names finishing-a-development-branch next | 5 | 5 |
+
+By hand: every GREEN run deletes only the draft in that commit
+("docs: remove late joiners design draft"), after the review fixes. Three
+GREEN runs and one RED run also fixed a review finding (`Club.join(null)` breaking
+`openRound`) test-first; no run touched an approved file.
+
+subagent-driven-development gets the same sentence in
+`references/final-review.md`. Its controller can't run here (the harness
+has no subagent tool), so it rests on the executing-plans result.
+
+### Guarding approved files: no change
+
+The design's last step was a hook blocking edits to committed tests and
+ADRs. The human partner follows obra here (#1040: skills can't enforce,
+blocking is the harness's job), so there's no hook. A final-review check
+that the diff on those paths is empty would need a failing baseline
+first, and none exists: kata run 1 changed only the DSL after approval,
+and no scenario run, pressure included, touched an approved test or ADR.
