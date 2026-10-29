@@ -1,4 +1,4 @@
-# Late joiners can't vote in an open round (short design draft)
+# Late joiners can't vote in an open round (design)
 
 ## Intent
 Eligibility for a round is fixed when it opens, so nobody can join the club just to sway a vote already running.

@@ -1,6 +1,5 @@
-# Proxy voting: design draft
+# Proxy voting: design
 
-Status: draft. Its decisions move to ADRs and its behaviours to acceptance tests.
 Sizing: a small change (one new concept in `Club`/`Round`, a handful of rules). Short draft, no builder check.
 
 ## Intent and why

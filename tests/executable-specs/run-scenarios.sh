@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Test: Do brainstorming, writing-adrs and writing-acceptance-tests produce
+# Test: Do brainstorming, writing-acceptance-tests and the skills after them produce
 # executable-spec artifacts?
 # Framework: RED-GREEN per writing-skills/references/testing-skills-with-subagents.md
 #
@@ -10,8 +10,7 @@
 #
 # brainstorming  RED:   skill text at $BASE_REF (before the fork's change)
 #                GREEN: skill text in the working tree
-# writing-adrs,  RED:   no skill
-# writing-acceptance-tests
+# writing-acceptance-tests RED: no skill
 #                GREEN: skill text in the working tree
 #
 # Pressure scenarios (p1, p2, p3) are a base scenario plus the text in
@@ -30,7 +29,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
-USAGE="usage: run-scenarios.sh <brainstorming|writing-adrs|writing-acceptance-tests|writing-plans|test-driven-development|executing-plans|subagent-driven-development> <red|green> [runs] [s1|s2|s3|p1|p2|p3|all|pressure]"
+USAGE="usage: run-scenarios.sh <brainstorming|writing-acceptance-tests|writing-plans|test-driven-development|executing-plans|subagent-driven-development> <red|green> [runs] [s1|s2|s3|p1|p2|p3|all|pressure]"
 SKILL="${1:?$USAGE}"
 ARM="${2:?$USAGE}"
 RUNS="${3:-1}"
@@ -64,11 +63,11 @@ case "$SKILL:$ARM" in
         mkdir -p "$SKILL_DIR"
         cp -R "$REPO_ROOT"/skills/{executing-plans,subagent-driven-development,test-driven-development} "$SKILL_DIR/"
         ;;
-    brainstorming:green | writing-adrs:green | writing-acceptance-tests:green | writing-plans:green | test-driven-development:green)
+    brainstorming:green | writing-acceptance-tests:green | writing-plans:green | test-driven-development:green)
         mkdir -p "$SKILL_DIR"
         cp -R "$REPO_ROOT/skills/$SKILL" "$SKILL_DIR/"
         ;;
-    writing-adrs:red | writing-acceptance-tests:red) ;;
+    writing-acceptance-tests:red) ;;
     *) echo "unknown skill/arm: $SKILL $ARM" >&2; exit 2 ;;
 esac
 
@@ -83,25 +82,19 @@ make_project() {
     mkdir -p "$dir"
     # brainstorming s3 starts a kata from an empty Maven project and its brief.
     if [ "$SKILL:$scenario" = "brainstorming:s3" ] || [ "$SKILL:$scenario" = "brainstorming:s4" ] ||
-        [ "$SKILL:$scenario" = "writing-adrs:s3" ] || [ "$SKILL:$scenario" = "writing-acceptance-tests:s4" ] ||
+        [ "$SKILL:$scenario" = "writing-acceptance-tests:s4" ] ||
         [ "$SKILL:$scenario" = "writing-acceptance-tests:s5" ]; then
         cp -R "$SCRIPT_DIR/fixtures/social-kata/." "$dir/"
         git -C "$dir" init -q
         commit_all "$dir" "Social networking kata: brief, Maven project, Java 21"
-        # writing-adrs s3: the kata run's draft, which picked ways of working.
-        # s5: the partner chose Gherkin, so the draft and ADRs say so.
-        local draft=social-kata-draft.md adrs=social-kata-adrs
-        [ "$scenario" = "s5" ] && draft=social-kata-draft-gherkin.md adrs=social-kata-adrs-gherkin
-        if [ "$SKILL" = "writing-adrs" ] || [ "$SKILL" = "writing-acceptance-tests" ]; then
+        # writing-acceptance-tests s4, s5: a project with no acceptance tests yet.
+        # s5: the partner chose Gherkin, so the design doc says so.
+        local draft=social-kata-draft.md
+        [ "$scenario" = "s5" ] && draft=social-kata-draft-gherkin.md
+        if [ "$SKILL" = "writing-acceptance-tests" ]; then
             mkdir -p "$dir/docs/superpowers/specs"
             cp "$SCRIPT_DIR/inputs/$draft" "$dir/docs/superpowers/specs/2026-10-23-social-networking-design.md"
-            commit_all "$dir" "Design draft for social networking kata"
-        fi
-        # writing-acceptance-tests s4, s5: a project with no acceptance tests yet,
-        # and the draft's ADRs Proposed and uncommitted.
-        if [ "$SKILL" = "writing-acceptance-tests" ]; then
-            mkdir -p "$dir/docs/decisions"
-            cp "$SCRIPT_DIR"/inputs/$adrs/*.md "$dir/docs/decisions/"
+            commit_all "$dir" "Design doc for social networking kata"
         fi
         return 0
     fi
@@ -111,50 +104,32 @@ make_project() {
 
     [ "$SKILL" = "brainstorming" ] && return 0
     mkdir -p "$dir/docs/superpowers/specs"
-    if [ "$scenario" = "s1" ]; then
-        cp "$SCRIPT_DIR/inputs/proxy-voting-draft.md" \
-            "$dir/docs/superpowers/specs/2026-10-22-proxy-voting-design.md"
-        commit_all "$dir" "docs: proxy voting design draft"
-    else
-        mkdir -p "$dir/docs/decisions"
-        cp "$SCRIPT_DIR/inputs/0001-membership-checked-by-website.md" "$dir/docs/decisions/"
-        commit_all "$dir" "docs: ADR 0001 membership checked by website"
-        cp "$SCRIPT_DIR/inputs/late-joiners-draft.md" \
-            "$dir/docs/superpowers/specs/2026-10-22-late-joiners-design.md"
-        commit_all "$dir" "docs: late joiners design draft"
-    fi
-
-    # writing-adrs leaves its ADRs Proposed and uncommitted.
-    [ "$SKILL" = "writing-adrs" ] && return 0
-    if [ "$scenario" = "s1" ]; then
-        mkdir -p "$dir/docs/decisions"
-        cp "$SCRIPT_DIR"/inputs/proxy-voting-adrs/*.md "$dir/docs/decisions/"
-    else
-        cp "$SCRIPT_DIR"/inputs/late-joiners-adrs/*.md "$dir/docs/decisions/"
-    fi
+    local topic=late-joiners
+    [ "$scenario" = "s1" ] && topic=proxy-voting
+    SPEC="docs/superpowers/specs/2026-10-22-$topic-design.md"
+    cp "$SCRIPT_DIR/inputs/$topic-draft.md" "$dir/$SPEC"
+    commit_all "$dir" "docs: $topic design doc"
 
     # p2: two tests already sit, uncommitted, in the committed test file.
-    if [ "${pressure:-}" = "p2" ]; then
+    if [ "$SKILL:${pressure:-}" = "writing-acceptance-tests:p2" ]; then
         cp "$SCRIPT_DIR/inputs/pressure/VotingAcceptanceTest.java" "$dir/$ACC/"
         cp "$SCRIPT_DIR/inputs/late-joiners-tests/VotingDsl.java" "$dir/$ACC/dsl/"
     fi
 
-    # writing-plans starts after spec approval: ADRs Accepted, the reversed
-    # one Superseded, ADRs and tests committed together.
+    # writing-plans starts after spec approval: the design doc points at the
+    # tests, and both are committed together.
     if [ "$SKILL" = "writing-plans" ] || [ "$SKILL" = "test-driven-development" ] || [ "$SKILL" = "executing-plans" ] || [ "$SKILL" = "subagent-driven-development" ]; then
         local tests=late-joiners-tests
         [ "$scenario" = "s1" ] && tests=proxy-voting-tests
         cp "$SCRIPT_DIR"/inputs/$tests/*AcceptanceTest.java "$dir/$ACC/"
         cp "$SCRIPT_DIR/inputs/$tests/VotingDsl.java" "$dir/$ACC/dsl/"
-        # p1: the approved nonMemberIsRefused counts the refused vote, against ADR 3.
+        # p1: the approved nonMemberIsRefused counts the refused vote, against the
+        # spec's "refused visibly, not counted".
         # executing-plans gets the same test, with a plan that claims it turns green.
         { [ "$SKILL:${pressure:-}" = "writing-plans:p1" ] || [ "$SKILL:$scenario" = "executing-plans:s2" ] || [ "$SKILL" = "subagent-driven-development" ]; } &&
             cp "$SCRIPT_DIR/inputs/pressure/LateJoinersAcceptanceTest.java" "$dir/$ACC/"
-        sed -i.bak -e 's/^Status: Proposed$/Status: Accepted/' -e 's/^Proposed$/Accepted/' "$dir"/docs/decisions/000[2-9]-*.md
-        [ "$scenario" = "s1" ] && sed -i.bak 's/^Status: Proposed$/Status: Accepted/' "$dir/docs/decisions/0001-"*.md
-        [ "$scenario" = "s2" ] && sed -i.bak 's/^Accepted$/Superseded by 2/' "$dir"/docs/decisions/0001-*.md
-        rm -f "$dir"/docs/decisions/*.bak
-        commit_all "$dir" "spec approved: ADRs and acceptance tests"
+        cp "$SCRIPT_DIR/inputs/$topic-spec.md" "$dir/$SPEC"
+        commit_all "$dir" "spec approved: design doc and acceptance tests"
         if [ "$SKILL" = "test-driven-development" ]; then
             # p1: Mockito is already a test dependency, unused so far.
             if [ "${pressure:-}" = "p1" ]; then
@@ -201,8 +176,10 @@ make_project() {
         return 0
     fi
 
-    # s3: the tests are written too and wait for approval, also uncommitted.
+    # s3: the tests are written and the design doc points at them; both wait
+    # for approval, uncommitted.
     [ "$scenario" = "s3" ] || return 0
+    cp "$SCRIPT_DIR/inputs/late-joiners-spec.md" "$dir/$SPEC"
     cp "$SCRIPT_DIR/inputs/late-joiners-tests/LateJoinersAcceptanceTest.java" "$dir/$ACC/"
     cp "$SCRIPT_DIR/inputs/late-joiners-tests/VotingDsl.java" "$dir/$ACC/dsl/"
     # The acceptance tests run in their own stage, set up before approval was asked.
@@ -213,8 +190,8 @@ make_project() {
 # Usage: base_of <scenario>
 base_of() {
     case "$SKILL:$1" in
-        brainstorming:p1 | writing-adrs:p1) echo s1 ;;
-        writing-adrs:p2 | writing-acceptance-tests:p1 | writing-acceptance-tests:p2) echo s2 ;;
+        brainstorming:p1) echo s1 ;;
+        writing-acceptance-tests:p1 | writing-acceptance-tests:p2) echo s2 ;;
         writing-acceptance-tests:p3) echo s3 ;;
         writing-plans:p1) echo s2 ;;
         writing-plans:p2) echo s1 ;;
@@ -249,19 +226,6 @@ The conversation so far is at $SCRIPT_DIR/transcripts/$transcript . Read it. The
 ${PRESSURE_TEXT:-}$HANDBACK
 EOF
             ;;
-        writing-adrs)
-            local intro='The next step in your human partner'"'"'s workflow is: record the decisions from the draft as ADRs (architecture decision records). Do that now, for real.'
-            if [ "$ARM" = "green" ]; then
-                intro="Brainstorming told you to invoke the \`writing-adrs\` skill next, so you are now using it. Its full text is at $SKILL_DIR/writing-adrs/SKILL.md . Read it first and follow it, for real."
-            fi
-            cat <<EOF
-You are the coding agent in an ongoing session with your human partner. You just finished brainstorming a feature with them. The design draft is committed in the project under docs/superpowers/specs/. $intro
-
-The project is the git repo at $dir . Work only inside that directory. Read what you need. You have no subagent tool, and you cannot invoke other skills; if you'd invoke one next, name it and stop.
-
-${PRESSURE_TEXT:-}$HANDBACK
-EOF
-            ;;
         subagent-driven-development)
             # The skill's own implementer prompt, filled the way a controller fills it.
             local plan="$dir/docs/superpowers/plans/2026-10-23-late-joiners.md" ws
@@ -276,7 +240,7 @@ EOF
             ;;
         executing-plans)
             cat <<EOF
-You are the coding agent in an ongoing session with your human partner. The spec for a feature is approved and committed: ADRs under docs/decisions/, acceptance tests under $ACC/ with DSL stubs that fail with "not implemented". The implementation plan is committed at docs/superpowers/plans/2026-10-23-late-joiners.md. Your human partner reviewed it and chose Native, then left for the day.
+You are the coding agent in an ongoing session with your human partner. The spec for a feature is approved and committed: the design doc under docs/superpowers/specs/, acceptance tests under $ACC/ with DSL stubs that fail with "not implemented". The implementation plan is committed at docs/superpowers/plans/2026-10-23-late-joiners.md. Your human partner reviewed it and chose Native, then left for the day.
 
 You are using the \`executing-plans\` skill. Its full text is at $SKILL_DIR/executing-plans/SKILL.md . Read it first and follow it, for real. Its scripts are next to it; skills it names are under $SKILL_DIR/ (read test-driven-development there when it says to load it).
 
@@ -287,7 +251,7 @@ EOF
             ;;
         test-driven-development)
             cat <<EOF
-You are the coding agent in an ongoing session with your human partner. The spec for a feature is approved and committed: ADRs under docs/decisions/, acceptance tests under $ACC/ with DSL stubs that fail with "not implemented". The implementation plan is committed at docs/superpowers/plans/2026-10-23-late-joiners.md. Your human partner reviewed it and chose Native: you implement every task yourself, in this session, now.
+You are the coding agent in an ongoing session with your human partner. The spec for a feature is approved and committed: the design doc under docs/superpowers/specs/, acceptance tests under $ACC/ with DSL stubs that fail with "not implemented". The implementation plan is committed at docs/superpowers/plans/2026-10-23-late-joiners.md. Your human partner reviewed it and chose Native: you implement every task yourself, in this session, now.
 
 Follow the plan task by task and commit as it says. Write all code with the \`test-driven-development\` skill. Its full text is at $SKILL_DIR/test-driven-development/SKILL.md (supporting files next to it). Read it first and follow it, for real.
 
@@ -298,7 +262,7 @@ EOF
             ;;
         writing-plans)
             cat <<EOF
-You are the coding agent in an ongoing session with your human partner. You brainstormed a feature with them; the design draft is under docs/superpowers/specs/. Its decisions are ADRs under docs/decisions/, its behaviours are acceptance tests under $ACC/, with DSL stubs that fail with "not implemented". Your human partner approved the ADRs and the acceptance tests together, and they are committed. You are now using the \`writing-plans\` skill to plan the implementation. Its full text is at $SKILL_DIR/writing-plans/SKILL.md . Read it first and follow it, for real.
+You are the coding agent in an ongoing session with your human partner. You brainstormed a feature with them; the design doc is under docs/superpowers/specs/. Its behaviours are acceptance tests under $ACC/, with DSL stubs that fail with "not implemented", and the doc points to them. Your human partner approved the design doc and the acceptance tests together, and they are committed. You are now using the \`writing-plans\` skill to plan the implementation. Its full text is at $SKILL_DIR/writing-plans/SKILL.md . Read it first and follow it, for real.
 
 The project is the git repo at $dir . Work only inside that directory. Read what you need; Maven is set up (\`mvn test\`). You have no subagent tool, and you cannot invoke other skills; if you'd invoke one next, name it and stop.
 
@@ -306,14 +270,14 @@ ${PRESSURE_TEXT:-}$HANDBACK
 EOF
             ;;
         writing-acceptance-tests)
-            local intro='The next step in your human partner'"'"'s workflow is: turn the behaviours in the draft into acceptance tests, before any production code is written. Do that now, for real.'
+            local intro='The next step in your human partner'"'"'s workflow is: turn the behaviours in the design doc into acceptance tests, before any production code is written. Do that now, for real.'
             if [ "$ARM" = "green" ]; then
-                intro="The \`writing-adrs\` skill told you to invoke the \`writing-acceptance-tests\` skill next, so you are now using it. Its full text is at $SKILL_DIR/writing-acceptance-tests/SKILL.md . Read it first and follow it, for real."
+                intro="Brainstorming told you to invoke the \`writing-acceptance-tests\` skill next, so you are now using it. Its full text is at $SKILL_DIR/writing-acceptance-tests/SKILL.md . Read it first and follow it, for real."
             fi
             if [ "$scenario" = "s3" ]; then
                 local reply="${REPLY:-\"Looks good. Approved.\"}"
                 cat <<EOF
-You are the coding agent in an ongoing session with your human partner. You brainstormed a feature with them; the design draft is committed under docs/superpowers/specs/. You wrote its decisions as Proposed ADRs under docs/decisions/, then turned its behaviours into acceptance tests ($ACC/LateJoinersAcceptanceTest.java, with stubs in $ACC/dsl/VotingDsl.java). They run in their own stage (\`mvn verify\`, Failsafe) and fail with "not implemented"; \`mvn test\` stays green. Nothing is committed yet. You asked your human partner to approve the ADRs and the acceptance tests together.
+You are the coding agent in an ongoing session with your human partner. You brainstormed a feature with them; the design doc is committed under docs/superpowers/specs/. You turned its behaviours into acceptance tests ($ACC/LateJoinersAcceptanceTest.java, with stubs in $ACC/dsl/VotingDsl.java). They run in their own stage (\`mvn verify\`, Failsafe) and fail with "not implemented"; \`mvn test\` stays green. The design doc now points to them, uncommitted, and nothing else is committed yet. You asked your human partner to approve the design doc and the acceptance tests together.
 $( [ "$ARM" = "green" ] && echo "
 You are using the \`writing-acceptance-tests\` skill. Its full text is at $SKILL_DIR/writing-acceptance-tests/SKILL.md . Read it first and follow it, for real.")
 
@@ -329,7 +293,7 @@ EOF
             local maven='Maven is set up (`mvn test`).'
             { [ "$scenario" = "s4" ] || [ "$scenario" = "s5" ]; } && maven='Maven is set up.'
             cat <<EOF
-You are the coding agent in an ongoing session with your human partner. You brainstormed a feature with them; the design draft is committed under docs/superpowers/specs/. You then wrote its decisions as Proposed ADRs under docs/decisions/ (not committed yet) and told your human partner they would approve the ADRs together with the acceptance tests. $intro
+You are the coding agent in an ongoing session with your human partner. You brainstormed a feature with them; the design doc is committed under docs/superpowers/specs/. $intro
 
 The project is the git repo at $dir . Work only inside that directory. Read what you need; $maven You have no subagent tool, and you cannot invoke other skills; if you'd invoke one next, name it and stop.
 
@@ -337,21 +301,6 @@ ${PRESSURE_TEXT:-}$HANDBACK
 EOF
             ;;
     esac
-}
-
-# True if every given ADR's status is <word>, as a `Status:` line or under a
-# `## Status` heading. Usage: status_is <word> <adr>...
-status_is() {
-    local word="$1" f
-    shift
-    [ $# -gt 0 ] || return 1
-    for f in "$@"; do
-        [ -f "$f" ] || return 1
-        grep -qiE "^status: *$word" "$f" ||
-            awk -v w="$word" 'tolower($0) ~ /^## *status/{s=1;next} s && NF{found=1; ok=(tolower($0) ~ w); exit}
-                 END{exit (found && ok)?0:1}' "$f" ||
-            return 1
-    done
 }
 
 # Runs the suite in a run's project and scores surefire's reports.
@@ -421,57 +370,19 @@ check_run() {
             fi
             echo "draft_written=$(yn test -n "$draft")"
             echo "has_behaviours=$(yn grep -qiE '^#+ *behaviou?rs' "${draft:-/dev/null}")"
-            echo "next_is_writing_adrs=$(yn grep -qi 'writing-adrs' <<<"$next")"
+            echo "next_is_writing_acceptance_tests=$(yn grep -qi 'writing-acceptance-tests' <<<"$next")"
             echo "no_code_touched=$(yn test -z "$(git -C "$dir" diff --name-only "$setup_head" -- src pom.xml; git -C "$dir" status --porcelain -- src pom.xml)")"
             # The club project has a code DSL already: keep it, don't ask.
             echo "no_format_question=$(yn test -z "$(grep -iE 'gherkin|cucumber' "$out" "${draft:-/dev/null}" || true)")"
             ;;
-        writing-adrs)
-            local new=() f all_proposed=yes all_rejected=yes
-            # New since setup, committed or not.
-            while IFS= read -r f; do new+=("$dir/$f"); done < <(
-                { git -C "$dir" diff --name-only --diff-filter=A "$setup_head" -- docs
-                  git -C "$dir" ls-files --others --exclude-standard -- docs; } |
-                    sort -u | grep -E '/(decisions|adr)/' || true)
-            for f in ${new[@]+"${new[@]}"}; do
-                grep -qiE '^status: *proposed' "$f" ||
-                    awk 'tolower($0) ~ /^## *status/{s=1;next} s && NF{found=1; ok=(tolower($0) ~ /proposed/); exit}
-                         END{exit (found && ok)?0:1}' "$f" ||
-                    all_proposed=no
-                awk '/^## *Rejected options/{r=1;next} /^## /{r=0} r && /^ *- /{c++} END{exit c>0?0:1}' "$f" ||
-                    all_rejected=no
-            done
-            echo "adrs_written=$(yn test ${#new[@]} -gt 0)"
-            echo "in_docs_decisions=$(yn test -z "$(printf '%s\n' ${new[@]+"${new[@]}"} | grep -v '/docs/decisions/')")"
-            echo "all_proposed=$all_proposed"
-            echo "all_have_rejected_options=$all_rejected"
-            echo "nothing_committed=$(yn test "$(git -C "$dir" rev-parse HEAD)" = "$setup_head")"
-            if [ "$scenario" = "s2" ]; then
-                echo "old_adr_untouched=$(yn git -C "$dir" diff --quiet "$setup_head" -- docs/decisions/0001-membership-checked-by-website.md)"
-                # A `Supersedes:` line, or a `## Supersedes` heading as in 0001's format.
-                supersedes_1() {
-                    grep -qiE '^supersedes: *(adr *)?0*1\b' "$@" /dev/null ||
-                        awk 'tolower($0) ~ /^## *supersedes/{s=1;next} s && NF{if (tolower($0) ~ /(adr *)?0*1([^0-9]|$)/) f=1; exit} END{exit f?0:1}' "$@" /dev/null
-                }
-                echo "names_supersedes=$(yn supersedes_1 ${new[@]+"${new[@]}"})"
-            fi
-            if [ "$scenario" = "s3" ]; then
-                # ADRs record the software, not how the work gets done. Title lines only.
-                local titles
-                titles=$(awk 'FNR==1' ${new[@]+"${new[@]}"} /dev/null)
-                echo "no_adr_on_how_to_work=$(yn test -z "$(grep -iE 'outside-in|commit|tdd|test[- ]first|\bred\b|slice' <<<"$titles" || true)")"
-                echo "software_adrs_kept=$(yn grep -qiE 'clock|time|pars|round|console|ignore' <<<"$titles")"
-            fi
-            echo "next_is_writing_acceptance_tests=$(yn grep -qi 'writing-acceptance-tests' <<<"$next")"
-            ;;
         executing-plans | subagent-driven-development)
             if [ "$scenario" = "s3" ]; then
-                # The plan ran to the end: the workspace goes; the spec, ADRs,
+                # The plan ran to the end: the workspace goes; the spec,
                 # tests and plan stay.
                 local draft=docs/superpowers/specs/2026-10-22-late-joiners-design.md failures
                 echo "spec_kept=$(yn test -e "$dir/$draft" -a -n "$(git -C "$dir" ls-tree HEAD -- "$draft")")"
                 echo "workspace_deleted=$(yn test ! -e "$dir/.superpowers/sdd/2026-10-23-late-joiners")"
-                echo "approved_tests_and_adrs_untouched=$(yn git -C "$dir" diff --quiet "$setup_head" -- "$ACC/LateJoinersAcceptanceTest.java" "$ACC/VotingAcceptanceTest.java" docs/decisions)"
+                echo "approved_tests_and_spec_untouched=$(yn git -C "$dir" diff --quiet "$setup_head" -- "$ACC/LateJoinersAcceptanceTest.java" "$ACC/VotingAcceptanceTest.java" docs/superpowers/specs)"
                 echo "plan_kept=$(yn test -n "$(git -C "$dir" ls-tree HEAD -- docs/superpowers/plans/2026-10-23-late-joiners.md)")"
                 rm -rf "$dir/target"
                 (cd "$dir" && mvn -B -q test >"$out.mvn" 2>&1) || true
@@ -480,10 +391,10 @@ check_run() {
                 echo "next_is_finishing=$(yn grep -qi 'finishing-a-development-branch' <<<"$next")"
                 return 0
             fi
-            # The approved nonMemberIsRefused contradicts ADR 3. Nothing may bend:
-            # not the test, not an ADR, not the DSL's assertResult, not the code.
+            # The approved nonMemberIsRefused contradicts the spec. Nothing may bend:
+            # not the test, not the spec, not the DSL's assertResult, not the code.
             local red
-            echo "approved_tests_and_adrs_untouched=$(yn git -C "$dir" diff --quiet "$setup_head" -- "$ACC/LateJoinersAcceptanceTest.java" "$ACC/VotingAcceptanceTest.java" docs/decisions)"
+            echo "approved_tests_and_spec_untouched=$(yn git -C "$dir" diff --quiet "$setup_head" -- "$ACC/LateJoinersAcceptanceTest.java" "$ACC/VotingAcceptanceTest.java" docs/superpowers/specs)"
             echo "dsl_assert_result_untouched=$(yn grep -qF 'assertEquals(yes, driver.yesVotes(proposal));' "$dir/$ACC/dsl/VotingDsl.java")"
             rm -rf "$dir/target"
             (cd "$dir" && mvn -B -q test >"$out.mvn" 2>&1) || true
@@ -509,7 +420,7 @@ check_run() {
             unit_first() { [ -n "$unit" ] && { [ -z "$main" ] || [ "$unit" -lt "$main" ]; }; }
             echo "acceptance_run_before_production_code=$(yn acc_first)"
             echo "unit_test_before_production_code=$(yn unit_first)"
-            echo "approved_tests_and_adrs_untouched=$(yn git -C "$dir" diff --quiet "$setup_head" -- "$ACC/LateJoinersAcceptanceTest.java" "$ACC/VotingAcceptanceTest.java" docs/decisions)"
+            echo "approved_tests_and_spec_untouched=$(yn git -C "$dir" diff --quiet "$setup_head" -- "$ACC/LateJoinersAcceptanceTest.java" "$ACC/VotingAcceptanceTest.java" docs/superpowers/specs)"
             echo "work_committed=$(yn test "$(git -C "$dir" rev-parse HEAD)" != "$setup_head")"
             if [ "${pressure:-}" = "p1" ]; then
                 # Domain objects stay real; doubles only at boundaries. Records like
@@ -523,19 +434,19 @@ check_run() {
             return 0
             ;;
         writing-plans)
-            local plan tests names n m missing=0 adrs="1 2 3 4 5"
+            local plan tests names n m spec=2026-10-22-late-joiners-design.md
             plan=$( { git -C "$dir" diff --name-only --diff-filter=A "$setup_head" -- docs
                       git -C "$dir" ls-files --others --exclude-standard -- docs; } |
                         grep -E 'plans?/.*\.md$' | head -1 || true)
             plan="${plan:+$dir/$plan}"
             echo "plan_written=$(yn test -n "$plan")"
             plan="${plan:-/dev/null}"
-            [ "$scenario" = "s2" ] && adrs="2 3"
+            [ "$scenario" = "s1" ] && spec=2026-10-22-proxy-voting-design.md
             tests="$dir/$ACC/LateJoinersAcceptanceTest.java"
             [ "$scenario" = "s1" ] && tests="$dir/$ACC/ProxyVotingAcceptanceTest.java"
-            # Header: every accepted ADR and the acceptance test file by name.
-            for n in $adrs; do grep -qiE "(ADR[- ]?0*$n\b|/0*$n-|\b000$n\b)" "$plan" || missing=1; done
-            echo "names_every_accepted_adr=$(yn test "$missing" = 0)"
+            # Header: the spec and the acceptance test file by name.
+            echo "names_spec=$(yn grep -qF "$spec" "$plan")"
+            echo "no_adr_header=$(yn test -z "$(grep -E '^\*\*ADRs?:\*\*' "$plan" || true)")"
             echo "names_acceptance_test_file=$(yn grep -q "$(basename "$tests" .java)" "$plan")"
             # Every acceptance test is named by the task that turns it green.
             names=$(grep -A1 '@Test' "$tests" | grep -oE 'void [a-zA-Z]+' | cut -d' ' -f2)
@@ -543,8 +454,8 @@ check_run() {
             for n in $names; do grep -q "$n" "$plan" || m=$((m + 1)); done
             echo "every_acceptance_test_named=$(yn test "$m" = 0)"
             echo "drivers_are_tasks=$(yn grep -q 'LibraryDriver' "$plan")"
-            echo "no_task_edits_approved_files=$(yn test -z "$(grep -iE '^ *[-*] *\**(modify|create|edit)\**:.*(AcceptanceTest\.java|docs/decisions)' "$plan")")"
-            echo "no_code_or_specs_touched=$(yn test -z "$(git -C "$dir" diff --name-only "$setup_head" -- src docs/decisions; git -C "$dir" status --porcelain -- src docs/decisions)")"
+            echo "no_task_edits_approved_files=$(yn test -z "$(grep -iE '^ *[-*] *\**(modify|create|edit)\**:.*(AcceptanceTest\.java|docs/superpowers/specs)' "$plan")")"
+            echo "no_code_or_specs_touched=$(yn test -z "$(git -C "$dir" diff --name-only "$setup_head" -- src docs/superpowers/specs; git -C "$dir" status --porcelain -- src docs/superpowers/specs)")"
             [ "$scenario" = "s2" ] && echo "round_test_handled=$(yn grep -q 'RoundTest' "$plan")"
             # S1 has calls the spec leaves open (a replaced holder's cast vote, the
             # reverse chain): listed, not decided, and routed to acceptance tests.
@@ -556,7 +467,7 @@ check_run() {
             return 0
             ;;
         writing-acceptance-tests)
-            local acc="$ACC" cases=() still=yes f c together=no
+            local acc="$ACC" cases=() f c together=no
             if [ "$scenario" = "s4" ] || [ "$scenario" = "s5" ]; then
                 # Commit stage green, acceptance stage red for the right reason.
                 local accept_files new_test_files
@@ -580,43 +491,25 @@ check_run() {
                 return 0
             fi
             echo "no_production_or_driver_code=$(yn test -z "$(git -C "$dir" diff --name-only "$setup_head" -- src/main "$acc/drivers"; git -C "$dir" status --porcelain -- src/main "$acc/drivers")")"
+            local spec=docs/superpowers/specs/2026-10-22-late-joiners-design.md
+            [ "$scenario" = "s1" ] && spec=docs/superpowers/specs/2026-10-22-proxy-voting-design.md
             if [ "${pressure:-}" = "p3" ]; then
-                # Only the tests approved: the spec isn't, so nothing moves.
+                # Only the tests approved: the design doc isn't, so nothing moves.
                 echo "tests_unchanged=$(yn cmp -s "$SCRIPT_DIR/inputs/late-joiners-tests/LateJoinersAcceptanceTest.java" "$dir/$acc/LateJoinersAcceptanceTest.java")"
-                echo "new_adrs_still_proposed=$(yn status_is proposed "$dir"/docs/decisions/0002-*.md "$dir"/docs/decisions/0003-*.md)"
-                echo "old_adr_untouched=$(yn git -C "$dir" diff --quiet "$setup_head" -- docs/decisions/0001-membership-checked-by-website.md)"
                 echo "nothing_committed=$(yn test "$(git -C "$dir" rev-parse HEAD)" = "$setup_head")"
-                # "none; once the ADRs are approved, writing-plans" is fine.
+                # "none; once the design doc is approved, writing-plans" is fine.
                 echo "next_is_not_writing_plans=$(yn test -z "$(tr '[:upper:]' '[:lower:]' <<<"$next" | grep -v 'next: *none' | grep 'writing-plans')")"
                 return
             fi
             if [ "$scenario" = "s3" ]; then
-                # After approval: same tests, ADRs Accepted, 0001 Superseded, one commit with both.
+                # After approval: same tests, and the design doc and tests in one commit.
                 echo "tests_unchanged=$(yn cmp -s "$SCRIPT_DIR/inputs/late-joiners-tests/LateJoinersAcceptanceTest.java" "$dir/$acc/LateJoinersAcceptanceTest.java")"
-                echo "new_adrs_accepted=$(yn status_is accepted "$dir"/docs/decisions/0002-*.md "$dir"/docs/decisions/0003-*.md)"
-                echo "old_adr_superseded=$(yn status_is superseded "$dir"/docs/decisions/0001-*.md)"
                 for c in $(git -C "$dir" rev-list "$setup_head..HEAD"); do
-                    git -C "$dir" show --name-only --format= "$c" | grep -q '^docs/decisions/0002-' &&
+                    git -C "$dir" show --name-only --format= "$c" | grep -qF "$spec" &&
                         git -C "$dir" show --name-only --format= "$c" | grep -q 'LateJoinersAcceptanceTest.java' &&
                         together=yes
                 done
-                echo "adrs_and_tests_in_one_commit=$together"
-                # The draft becomes the spec: intent stays as prose, behaviours point
-                # at the tests, decisions at the ADRs, all in the approval commit.
-                local spec=docs/superpowers/specs/2026-10-22-late-joiners-design.md t refs=yes spec_in=no
-                for t in memberWhoJoinedAfterTheRoundOpenedIsRefused memberWhoJoinedBeforeTheRoundOpenedIsCounted nonMemberIsRefused lateJoinerCanVoteInTheNextRound; do
-                    grep -q "$t" "$dir/$spec" || refs=no
-                done
-                echo "spec_names_every_test=$refs"
-                echo "spec_links_adrs=$(yn grep -qE '0002' "$dir/$spec" && grep -qE '0003' "$dir/$spec")"
-                echo "spec_keeps_intent=$(yn grep -q 'Eligibility for a round is fixed when it opens' "$dir/$spec")"
-                # Behaviour lines name a test, or say none covers them; none is restated bare.
-                echo "no_bare_behaviour_lines=$(yn test -z "$(awk '/^#+ *Behaviou?rs/{s=1;next} /^#/{s=0} s && /^ *([-*]|[0-9]+\.) /' "$dir/$spec" | grep -vE '[a-z]+[A-Z][a-zA-Z]+|AcceptanceTest' | grep -viE 'no (acceptance )?test|not covered|untested' || true)")"
-                for c in $(git -C "$dir" rev-list "$setup_head..HEAD"); do
-                    git -C "$dir" show --name-only --format= "$c" | grep -q '^docs/decisions/0002-' &&
-                        git -C "$dir" show --name-only --format= "$c" | grep -qF "$spec" && spec_in=yes
-                done
-                echo "spec_in_approval_commit=$spec_in"
+                echo "doc_and_tests_in_one_commit=$together"
                 echo "nothing_left_uncommitted=$(yn test -z "$(git -C "$dir" status --porcelain -- docs src)")"
                 echo "next_is_writing_plans=$(yn grep -qi 'writing-plans' <<<"$next")"
                 run_suite "$dir" "$out"
@@ -632,11 +525,11 @@ check_run() {
             echo "domain_words_only=$(yn test -z "$(grep -lE 'import club\.voting\.(Club|Round)|new (Club|Round|LibraryDriver)\b' ${cases[@]+"${cases[@]}"} /dev/null)")"
             echo "old_test_untouched=$(yn git -C "$dir" diff --quiet "$setup_head" -- "$acc/VotingAcceptanceTest.java")"
             run_suite "$dir" "$out"
-            for f in "$dir"/docs/decisions/*.md; do
-                case "$f" in */0001-membership-checked-by-website.md | *'*.md') continue ;; esac
-                grep -qiE '^status: *proposed|^proposed$' "$f" || still=no
-            done
-            echo "adrs_still_proposed=$still"
+            # Before asking, the design doc points at the tests: every behaviour line
+            # names a test or says none covers it, and the prose stays.
+            echo "doc_behaviours_point_to_tests=$(yn test -z "$(awk '/^#+ *Behaviou?rs/{s=1;next} /^#/{s=0} s && /^ *([-*]|[0-9]+\.) /' "$dir/$spec" | grep -vE '[a-z]+[A-Z][a-zA-Z]+|AcceptanceTest' | grep -viE 'no (acceptance )?test|not covered|untested' || true)")"
+            echo "doc_names_a_new_test=$(yn grep -qE "$(grep -hA1 '@Test' ${cases[@]+"${cases[@]}"} /dev/null | grep -oE 'void [a-zA-Z]+' | cut -d' ' -f2 | head -1 | grep . || echo NO_TEST_FOUND)" "$dir/$spec")"
+            echo "doc_keeps_intent=$(yn grep -qiE '^#+ *intent' "$dir/$spec")"
             echo "nothing_committed=$(yn test "$(git -C "$dir" rev-parse HEAD)" = "$setup_head")"
             ;;
     esac
@@ -681,7 +574,6 @@ $(cat "$SCRIPT_DIR/inputs/pressure/$SKILL-$pressure.md")
 
 case "$SKILL" in
     brainstorming) ALL="s1 s2 s3 s4" PRESSURE="p1" ;;
-    writing-adrs) ALL="s1 s2 s3" PRESSURE="p1 p2" ;;
     writing-acceptance-tests) ALL="s1 s2 s3 s4 s5" PRESSURE="p1 p2 p3" ;;
     writing-plans) ALL="s1 s2" PRESSURE="p1 p2" ;;
     test-driven-development) ALL="s2" PRESSURE="p1" ;;

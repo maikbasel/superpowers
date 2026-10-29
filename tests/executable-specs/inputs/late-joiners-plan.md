@@ -10,8 +10,6 @@
 
 **Spec:** `docs/superpowers/specs/2026-10-22-late-joiners-design.md`
 
-**ADRs:** `docs/decisions/0002-round-snapshots-members-when-it-opens.md`, `docs/decisions/0003-refused-votes-are-refused-visibly.md` (ADR 0001 is superseded; do not follow it).
-
 **Acceptance tests:** `src/test/java/club/voting/acceptance/LateJoinersAcceptanceTest.java`, `src/test/java/club/voting/acceptance/VotingAcceptanceTest.java`. Read-only: no task edits them. The DSL and driver under `acceptance/dsl` and `acceptance/drivers` are support code and Task 2 does edit them.
 
 ## Global Constraints
@@ -106,4 +104,4 @@ git commit -m "test: driver and DSL report vote refusals"
 
 - Spec behaviours 1–4 map to Task 2's four acceptance tests, backed by Task 1 unit tests. Behaviour 5 has no acceptance test; Task 1's `refusedVoteLeavesOtherVotesUntouched` pins what the code can express.
 - Every approved test is named by exactly one task (5 tests: 1 in Task 1, 4 in Task 2).
-- Refusal surfaced as a result value (left to the builder by ADR 3); `Round.vote`'s one other caller is the driver.
+- Refusal surfaced as a result value (left to the builder by the spec); `Round.vote`'s one other caller is the driver.

@@ -10,8 +10,6 @@
 
 **Spec:** `docs/superpowers/specs/2026-10-22-late-joiners-design.md`
 
-**ADRs:** `docs/decisions/0002-round-snapshots-members-when-it-opens.md`, `docs/decisions/0003-refused-votes-are-refused-visibly.md` (ADR 0001 is superseded by 0002; do not follow it).
-
 **Acceptance tests:** `src/test/java/club/voting/acceptance/LateJoinersAcceptanceTest.java`, `src/test/java/club/voting/acceptance/VotingAcceptanceTest.java`. Read-only: no task edits them. If one needs changing, stop and ask the human partner. (The DSL and driver under `acceptance/dsl` and `acceptance/drivers` are not test files; Task 2 implements their stubs.)
 
 ## Global Constraints
@@ -27,7 +25,7 @@
 - A name differing only by case (`"Alice"` vs `"alice"`): a different person, refused as `not a member`. Pinned in Task 1.
 - A round opened while the club has no members: every vote refused, tally 0/0, no exception. Pinned in Task 1.
 - Re-opening the same proposal name: the new round gets a fresh snapshot, so a member who joined between the two openings can vote in the second. Pinned in Task 1.
-- The existing `RoundTest.laterVoteReplacesEarlierVote` votes as a non-member; under ADR 2 it would be refused and fail. Task 1 fixes it by joining the voter first.
+- The existing `RoundTest.laterVoteReplacesEarlierVote` votes as a non-member; under the snapshot it would be refused and fail. Task 1 fixes it by joining the voter first.
 
 ---
 

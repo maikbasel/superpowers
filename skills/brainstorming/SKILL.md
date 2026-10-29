@@ -27,11 +27,9 @@ Before you start implementing, you must, in order:
 
 1. Lay out the approaches in a message of their own, and have your
    human partner pick one (see Lay out the approaches).
-2. Write the design draft, short or full (see Size the Work).
-3. Invoke the superpowers:writing-adrs skill.
-
-Your human partner doesn't approve the draft. They approve what comes
-out of it: the ADRs and the acceptance tests.
+2. Write the design doc, short or full (see Size the Work).
+3. Invoke the superpowers:writing-acceptance-tests skill. Your human
+   partner approves the design doc and its acceptance tests together.
 
 Two things aren't implementing: a spike they said yes to (see Spike to
 feel things out), and doing what they asked once they've opted out of
@@ -207,18 +205,18 @@ they've accepted, put a mockup next to the description.
 Once you understand what they want and they've picked an approach, say
 how big the work is in plain words. They can override it.
 
-| Size | The design draft |
-|------|------------------|
+| Size | The design doc |
+|------|----------------|
 | A small change | a short one: what you already covered together, written down |
 | A project | the full written design (below) |
 
-Short or full, the draft has an **Approaches** part: the two or three
-ways you considered building it, what each trades off, which one they
-picked, and why. They pick in the conversation, before you write the
-draft.
+Short or full, the design doc has an **Approaches** part: the two or
+three ways you considered building it, what each trades off, which one
+they picked, and why. They pick in the conversation, before you write
+the doc.
 
-Short or full, the draft also has a **Behaviours** part: everything the
-result must do, one line each, as a concrete example ("a member who
+Short or full, the design doc also has a **Behaviours** part: everything
+the result must do, one line each, as a concrete example ("a member who
 already holds a proxy is refused a second one"). It holds what they said
 and every call you made that changes what the software does. Each line
 becomes an acceptance test. A small change usually has one or two.
@@ -230,9 +228,8 @@ order, and brainstorm them one at a time.
 
 ## The Written Design
 
-Write a plain draft a talented builder in the domain could plan from
-without going back to your human partner. It's a draft: its decisions
-move to ADRs and its behaviours move to acceptance tests. Cover:
+Write a plain document a talented builder in the domain could plan
+from without going back to your human partner. Cover:
 
 - intent and the why
 - goals, non-goals, anti-goals
@@ -242,8 +239,8 @@ move to ADRs and its behaviours move to acceptance tests. Cover:
 - the parts of the how they decided, as they decided them
 - what's left to the builder
 
-For a small change, the short draft covers the same points in a line or
-two each and skips the builder check.
+For a small change, the short design covers the same points in a line
+or two each and skips the builder check.
 
 **Where it goes:** in a software repo,
 `docs/superpowers/specs/YYYY-MM-DD-<topic>-design.md`, committed.
@@ -264,15 +261,15 @@ is back. Sort what the builder asks into three piles:
   what gets built.
 
 Bring the "theirs" pile in one message, most important first. Update the
-draft with their answers. That's the only round of questions the check
+document with their answers. That's the only round of questions the check
 produces. Without a subagent tool, read the document as that builder
 yourself.
 
 <HARD-GATE>
-Nothing gets built until your human partner approves the spec: the ADRs
-and acceptance tests that come out of the draft. The draft itself isn't
-approved. Building includes writing product code, scaffolding, installing
-dependencies, creating projects, and invoking an implementation skill.
+Nothing gets built until your human partner approves the design doc
+and its acceptance tests, together. Building includes writing product
+code, scaffolding, installing dependencies, creating projects, and
+invoking an implementation skill.
 Reading and exploring are fine.
 
 Two exceptions. If they opted out of the questions, the skill is done
@@ -280,9 +277,9 @@ and the gate goes with it. A spike they said yes to may be built; it
 stays labeled throwaway, and keeping what it produced is a new request
 that comes back through this gate.
 
-Once the draft is written, and for a project the builder check is
-settled, the next step is the decisions: invoke superpowers:writing-adrs
-and no other skill.
+Once the design doc is written, and for a project the builder check is
+settled, the next step is the tests: invoke
+superpowers:writing-acceptance-tests and no other skill.
 </HARD-GATE>
 
 ## Red Flags
@@ -293,8 +290,8 @@ and no other skill.
 | "I'll fill in sensible defaults" | Good. Say them out loud. A default they never heard is one they couldn't reject. |
 | "I've answered their questions, so I'll write the doc" | Lay out the approaches first, in a message of their own. |
 | "I should explain the process first" | Ask your question. The process shows itself. |
-| "They said 'sounds good' to the idea" | Approval covers what you showed them. They approve ADRs and tests, not ideas. |
-| "Tests are the builder's job" | Each behaviour in the draft becomes an acceptance test. Write the behaviour so it can. |
+| "They said 'sounds good' to the idea" | Approval covers what you showed them. A design doc you haven't written isn't approved. |
+| "Tests are the builder's job" | Each behaviour in the design doc becomes an acceptance test. Write the behaviour so it can. |
 | "That's a detail, I'll list it as my call" | If it changes what the software does, it's a behaviour. Put it in Behaviours. |
 | "The spike works, I'll keep building on it" | Keeping it is a new request. Back through the gate. |
 

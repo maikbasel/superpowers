@@ -67,9 +67,6 @@ independently testable deliverable.
 **Spec:** [path to the spec/design doc this plan implements — the plan
 argues from the spec, so the spec travels with it; executors read both]
 
-**ADRs:** [path of every accepted ADR this plan must follow — executors
-read them before the first task]
-
 **Acceptance tests:** [path of every approved acceptance test file. They
 are read-only: no task edits them. If the plan needs one changed, stop
 and ask your human partner.]
@@ -124,7 +121,7 @@ become acceptance tests your human partner approves. "None" if none.]
 **Acceptance tests:** [each acceptance test this task turns green, by its
 exact test name, or "none". Every approved acceptance test is named by
 exactly one task. Before you name one, read its assertions: does the
-code this task writes produce exactly those values, under the ADRs? If
+code this task writes produce exactly those values, under the spec? If
 not, the test can't be planned. Stop and ask your human partner.]
 
 - [ ] **Step 1: Write the failing test**
@@ -204,7 +201,7 @@ If you find issues, fix them inline. No need to re-review — just fix and move 
 
 **If the plan has behaviour calls, execution waits.** Ask your human
 partner each one, with your recommendation. Add their answers to the
-draft's Behaviours, then invoke superpowers:writing-acceptance-tests.
+design doc's Behaviours, then invoke superpowers:writing-acceptance-tests.
 Once those tests are approved, update the plan so a task owns each one.
 
 After saving and self-reviewing the plan, link it for your human partner

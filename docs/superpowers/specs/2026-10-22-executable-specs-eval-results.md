@@ -932,3 +932,57 @@ executing-plans and SDD still say "the spec is the binding authority"
 the spec's prose overrule a test or ADR: in executing-plans S2 (an
 approved test contradicting ADR 3) every baseline run left the approved
 files alone and raised the conflict. No failing baseline, so no change.
+
+## Close to upstream: no ADRs, the design doc points to the tests
+
+The human partner chose to stay close to upstream. Research
+(Nygard, Fowler, ThoughtWorks Radar on ADRs; Ubl's "Design Docs at
+Google"; Farley and Adzic on executable specifications; Böckeler on
+spec-driven tools) split the ground: behaviour belongs in executable
+tests, decisions in ADRs or in a design doc understood as a snapshot.
+Upstream keeps the design doc as that snapshot. The fork now does too:
+decisions stay in the doc, behaviour lines point to the acceptance
+tests, and one approval covers both. `writing-adrs` is gone; reversed
+decisions get no marker until a stale one misleads a run.
+
+Harness: fixtures without ADRs, the drafts as plain design docs,
+`inputs/late-joiners-spec.md` and `inputs/proxy-voting-spec.md` as the
+approved docs, plans naming the spec. New checks: brainstorming names
+`writing-acceptance-tests` next; before asking, the doc's behaviour lines
+point to tests; on approval the doc and tests share one commit; plans
+carry no ADR header. Baseline is the fork's text before the change.
+
+| Scenario (n=5 each) | Baseline | GREEN |
+|---|---|---|
+| brainstorming s1, s2: names writing-acceptance-tests next | 0/10 | 10/10 |
+| writing-acceptance-tests s1, s2: doc points to tests | 0/10 | 10/10 |
+| writing-acceptance-tests s3: doc and tests in one commit | 5/5 | 5/5 |
+| writing-plans s1, s2: no ADR header | 0/10 (all wrote "ADRs: none") | 10/10 |
+| Every other check in those scenarios | pass | pass |
+
+Regression, GREEN: brainstorming s3 (usage picture) 5/5, p1 5/5;
+writing-acceptance-tests p1, p2, p3 5/5 each, s4 5/5; writing-plans p1
+contradiction raised 5/5 (two runs rightly stopped before writing a plan
+the approved test can't satisfy), p2 5/5.
+
+brainstorming s4 asked the test format in 3/5. The two others were still
+settling what the app should do and hadn't reached the approaches, where
+the skill asks it. Not counted as a regression.
+
+**Gherkin regressed, then fixed.** S5 (the design doc says Gherkin with
+Cucumber): 0/5 feature files. The skill said "Plain code… No Gherkin",
+and without the Gherkin ADR the earlier S5 had, the skill won over the
+doc, silently. Change: plain code "unless the project's acceptance tests
+or the design doc say Gherkin: then the feature files are the test cases
+and the step definitions are the DSL". S5 5/5 after; s4 and s2 5/5.
+
+Mine on the way: the pressure p2 test file leaked into writing-plans p2
+(one run rightly stopped on the uncompilable test); scoped to
+writing-acceptance-tests p2. Two chains were refused by the usage limit
+(`session_ran` caught both) and the scratchpad holding the first baseline
+runs was cleared overnight; the baseline counts above are from the
+check output before that.
+
+By hand: pointed docs list test names per behaviour line and keep the
+"my call" marks; the approval commit holds the doc, tests, stubs and the
+acceptance stage; plans name the spec and the test files.
