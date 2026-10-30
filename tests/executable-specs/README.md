@@ -107,12 +107,6 @@ S2 also: the plan fixes `RoundTest`, a unit test the snapshot breaks.
 `p1` makes the approved `nonMemberIsRefused` contradict the spec's
 "refused, not counted": the hand-back must name it. Plans take longer; run with `TIMEOUT=900`.
 
-**brainstorming s3** starts the Social Networking kata from
-`fixtures/social-kata` (an empty Maven project and `KATA.md`) with only
-the partner's first message. The first reply must say how the app is
-used: one console where one person types for every user, or each user
-at their own terminal.
-
 **executing-plans s3** is the end of a plan: the late-joiners spec
 approved, `inputs/late-joiners-plan.md` committed, both tasks done
 (`inputs/late-joiners-task1-done.patch`, `-task2-done.patch`, from one

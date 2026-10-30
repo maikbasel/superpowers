@@ -66,9 +66,8 @@ change as little as possible.
 ## The workflow
 
 1. `brainstorming`: as upstream, plus a Behaviours part in the design
-   doc, the usage picture in the first message, and the test format asked
-   once per project. The builder check also asks: can each behaviour
-   become a test? The hard gate points to `writing-acceptance-tests`.
+   doc and the test format asked once per project. The builder check
+   also asks: can each behaviour become a test? The hard gate points to `writing-acceptance-tests`.
 2. `writing-acceptance-tests` (new): each behaviour becomes a test in
    domain words, with DSL stubs, in a stage of its own. An architecture
    test for each decision that states a checkable structure. They fail

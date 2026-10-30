@@ -80,8 +80,8 @@ commit_all() {
 make_project() {
     local scenario="$1" dir="$2"
     mkdir -p "$dir"
-    # brainstorming s3 starts a kata from an empty Maven project and its brief.
-    if [ "$SKILL:$scenario" = "brainstorming:s3" ] || [ "$SKILL:$scenario" = "brainstorming:s4" ] ||
+    # brainstorming s4 starts a kata from an empty Maven project and its brief.
+    if [ "$SKILL:$scenario" = "brainstorming:s4" ] ||
         [ "$SKILL:$scenario" = "writing-acceptance-tests:s4" ] ||
         [ "$SKILL:$scenario" = "writing-acceptance-tests:s5" ]; then
         cp -R "$SCRIPT_DIR/fixtures/social-kata/." "$dir/"
@@ -213,7 +213,6 @@ prompt_for() {
             case "$scenario" in
                 s1) transcript=s1-proxy-voting.md ;;
                 s2) transcript=s2-late-joiners.md ;;
-                s3) transcript=s3-social-kata.md ;;
                 s4) transcript=s4-social-kata-style.md ;;
             esac
             cat <<EOF
@@ -358,13 +357,6 @@ check_run() {
                 echo "no_test_style_question=$(yn test -z "$(grep -iE '^ *(- )?\*\*[^*]*(mock|fake|stand-in|double|clock is faked|real objects|london|chicago)[^*]*\*\*' "$out" || true)")"
                 # No acceptance tests in the kata yet: ask their format, once.
                 echo "asks_acceptance_test_format=$(yn grep -qiE 'gherkin|cucumber' "$out")"
-                echo "no_code_touched=$(yn test -z "$(git -C "$dir" status --porcelain -- src pom.xml)")"
-                return 0
-            fi
-            if [ "$scenario" = "s3" ]; then
-                # The first reply must say how the app is used: everyone at one
-                # console, or each user at their own terminal.
-                echo "usage_assumption_named=$(yn grep -qiE 'one (console|terminal|session|prompt)|single (console|terminal|session)|same (console|terminal|session|prompt)|(own|separate|several|multiple|different) (terminals?|consoles?|machines?|sessions?)|log(s|ged)? ?in|one person types|types? (for|as) (every|each|all)|multi-?user' "$out")"
                 echo "no_code_touched=$(yn test -z "$(git -C "$dir" status --porcelain -- src pom.xml)")"
                 return 0
             fi
@@ -573,7 +565,7 @@ $(cat "$SCRIPT_DIR/inputs/pressure/$SKILL-$pressure.md")
 }
 
 case "$SKILL" in
-    brainstorming) ALL="s1 s2 s3 s4" PRESSURE="p1" ;;
+    brainstorming) ALL="s1 s2 s4" PRESSURE="p1" ;;
     writing-acceptance-tests) ALL="s1 s2 s3 s4 s5" PRESSURE="p1 p2 p3" ;;
     writing-plans) ALL="s1 s2" PRESSURE="p1 p2" ;;
     test-driven-development) ALL="s2" PRESSURE="p1" ;;

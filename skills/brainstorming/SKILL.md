@@ -52,10 +52,6 @@ Move the work forward, with one of these:
   request): aim for about 200 words for the whole message. Echo their
   request back in your own words, so they can see whether you've got its
   shape: what they want, who it's for, and why, as far as they've said.
-  Then say in one plain sentence how you picture it being used: who sits
-  where, how many at once, through what. Say it even when the usual
-  reading seems obvious. That picture is the assumption most likely to
-  be wrong, and the most expensive to find out late.
   Add what you found that bears on it: how the relevant parts work today
   and what the change would touch. If you found something they may not
   have considered that would change what they're asking for or how it
