@@ -5,8 +5,9 @@ description: Use when a design doc's behaviours need to become acceptance tests 
 
 # Writing Acceptance Tests
 
-Each behaviour in the design doc becomes an acceptance test, written
-before any code. The tests say what done means; the design doc says why.
+Each behaviour in the design doc becomes an acceptance test, one slice
+at a time, written before its code. The tests say what done means; the
+design doc says why.
 
 **Announce at start:** "I'm using the writing-acceptance-tests skill to
 turn the behaviours into tests."
@@ -26,14 +27,30 @@ are the test cases and the step definitions are the DSL.
 Use the project's DSL and add the steps you need. If there is none, start
 one next to the tests.
 
+## One slice at a time
+
+Each behaviour line is a slice: one end-to-end increment. Exactly one
+acceptance test is red at a time.
+
+- Order the slices: first the one the others build on, usually the
+  first line.
+- Write the acceptance test for the first slice now, and only that one.
+- Every later slice gets its test when it starts, once the slice before
+  it is green. writing-plans puts that test, as code, at the start of
+  the slice's tasks, so your human partner approves it with the plan.
+- A behaviour's edges and robustness cases are unit tests inside its
+  slice, not more acceptance tests.
+
 ## Write
 
-- One test per behaviour line, more when a behaviour has edges. Name each
-  after the behaviour.
+- One test, for the first slice. Name it after the behaviour.
 - New test cases go in a new file. Committed test cases are approved and
   read-only, even to add a test next to them.
-- Every new DSL step is a stub that fails with "not implemented", e.g.
-  `throw new UnsupportedOperationException("not implemented: <step>")`.
+- A new DSL step is missing or a stub that fails with "not implemented",
+  e.g. `throw new UnsupportedOperationException("not implemented: <step>")`.
+  If the acceptance tests compile on their own (their own source set or
+  module), a step that doesn't exist yet is red. If they compile with
+  the unit tests, a missing step breaks the unit run: stub it.
 - Leave drivers and production code alone. How a step reaches the system
   is the builder's call, and a plan task.
 - A decision in the design doc that states a checkable structure (a
@@ -50,33 +67,39 @@ script. Leave the unit run as it is.
 
 ## Fail for the right reason
 
-Run the acceptance stage. Every new test fails, and every failure says
-"not implemented". Existing tests still pass, and the unit run is green.
+Run the acceptance stage. The new test fails because its new step
+doesn't exist or says "not implemented". Existing tests still pass, and
+the unit run compiles and is green.
 
 | You see | Fix |
 |---------|-----|
-| Doesn't compile | A step calls the system. Make it a stub. |
+| Doesn't compile: a step doesn't exist yet | Red, if the unit run still compiles. Otherwise stub it. |
+| Doesn't compile: a step calls the system | Make it a stub. |
 | Fails on an assertion | A step reached the system. Make it a stub. |
 | Passes | The test is missing its new step, or the behaviour already holds. Tell your human partner which. |
 
 ## Point the design doc at the tests
 
-Replace each behaviour line in the design doc with the test that covers
-it, by file and name. A behaviour no test covers says so. Leave the rest
-of the doc as it is: intent, goals, decisions, constraints. The tests
-bind what the software does; the doc keeps the why.
+Replace the first slice's behaviour line with its test, by file and
+name. Every later line keeps its example and gets its slice number and
+the file and name its test will have: "Slice 2, test not yet written
+(`MemberIsCountedAcceptanceTest.memberIsCounted`): …". A behaviour no
+test will cover says so. Leave the rest of the doc as it is: intent,
+goals, decisions, constraints. The tests bind what the software does;
+the doc keeps the why.
 
 ## Spec approval
 
 Don't commit yet. A commit is the approval.
 
-Ask your human partner to approve the spec: the design doc and the
-acceptance tests together. Say which test covers which behaviour, and
-which calls in the doc are your own (the doc records who picked what;
-check it). Changes go back through this skill, then you ask again.
+Ask your human partner to approve the spec: the design doc, with the
+slices in order, and the first slice's acceptance test together. Say
+which test covers which behaviour, and which calls in the doc are your
+own (the doc records who picked what; check it). Changes go back
+through this skill, then you ask again.
 
-**On approval**, commit the design doc, test cases and DSL stubs
-together, in one commit.
+**On approval**, commit the design doc, the test case and its DSL
+steps together, in one commit.
 
 Then invoke superpowers:writing-plans and no other skill.
 
@@ -84,12 +107,14 @@ Then invoke superpowers:writing-plans and no other skill.
 
 | Thought | Reality |
 |---------|---------|
+| "I'll write all the tests now, while the behaviours are fresh" | One red at a time. The examples are in the doc; later tests go in the plan. |
+| "This edge case needs its own acceptance test" | Edges are unit tests in the slice. |
 | "I'll wire the driver so the test is real" | A driver is a plan task. Stub the DSL step. |
 | "An assertion failure is a better red" | It means the test reached the system. Stub it. |
 | "This test passes already, good" | Then it tests nothing new. Find the missing step. |
 | "It fits in the existing test file" | Committed test cases are read-only. New file. |
-| "The method doesn't exist yet, that's red enough" | A compile error isn't a failing test. Stub it. |
+| "The step doesn't exist yet, that's red enough" | Only if the unit run still compiles. Check it. |
 | "Commit the tests so they're safe" | A commit is the approval. Wait for it. |
 | "Red tests in the unit run are fine until it's built" | Every commit is red then. Give them their own stage. |
 | "I wrote it down, so it's my call" | Writing it isn't choosing it. The doc says who picked what. |
-| "The behaviour lines read better, keep them" | Two copies drift. Point to the test. |
+| "The behaviour lines read better, keep them" | Two copies drift. Point to the test once it exists. |

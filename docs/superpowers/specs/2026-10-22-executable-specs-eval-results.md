@@ -986,3 +986,106 @@ check output before that.
 By hand: pointed docs list test names per behaviour line and keep the
 "my call" marks; the approval commit holds the doc, tests, stubs and the
 acceptance stage; plans name the spec and the test files.
+
+## One slice at a time, and a compile error is red
+
+Why: the fork wrote every behaviour's acceptance test up front, all red
+at once, and required a stub for every new DSL step. ATDD as GOOS and
+Specification by Example teach it (and a project's TDD guard that
+enforces it) has exactly one failing acceptance test per feature, and
+counts a compile error from code that doesn't exist yet as red. Change:
+each behaviour is a slice; writing-acceptance-tests writes only the
+first slice's test and names the test each later slice will get;
+writing-plans plans every slice, opening each later one with a task that
+writes its test as code; a missing step is red when the acceptance tests
+compile apart from the unit tests, and is stubbed when they compile
+together.
+
+### writing-acceptance-tests
+
+RED is the fork text before this change (green arm at `HEAD`), GREEN the
+new text. Fresh sonnet sessions, 5 per scenario.
+
+| | RED s1 | RED s2 | RED s4 | GREEN s1 | GREEN s2 | GREEN s4 |
+|---|---|---|---|---|---|---|
+| New acceptance tests per run | 15–16 | 3–5 | 21–44 | 1 | 1 | 1 |
+| Exactly one new acceptance test | 0/5 | 0/5 | 0/5 | 5/5 | 5/5 | 5/5 |
+| Doc marks the later slices | 0/5 | 0/5 | n/a | 5/5 | 5/5 | n/a |
+| Every other check | pass | pass | pass | pass | pass | pass |
+
+New checks: `exactly_one_new_acceptance_test` (s1, s2, s4, s5) and
+`doc_marks_later_slices`; `doc_behaviours_point_to_tests` accepts a line
+that says its slice comes later.
+
+**Compile error as red** (micro-test, no Maven fixture compiles the
+acceptance tests apart): a Gradle Android project, instrumented tests in
+their own source set, three behaviours, and a TDD guard that counts a
+compile error as red. 3 fresh subagents per arm, every reply read.
+
+| | old text | new text |
+|---|---|---|
+| Tests written | 3, 3, 3 | 1, 1, 1 |
+| Later slices named in the doc | 0/3 | 3/3 |
+| New step left missing (compile red) | 0/3 | 2/3 |
+| New step stubbed | 3/3 | 1/3 |
+
+Two old-text runs said outright that "a compile error isn't the red I
+want, even though the TDD guard would accept it". New-text runs that
+left the step missing checked that the unit run doesn't compile the
+acceptance sources; the one that stubbed did so on its own call, which
+the skill allows. The Maven s1/s2/s4 runs, where both compile together,
+still stubbed every step and kept `mvn test` green (5/5 each).
+
+### writing-plans
+
+New scenario s3: the sliced spec approved, only slice 1's test written
+(`inputs/late-joiners-sliced/`); the doc names slices 2–4 by example and
+by the test each will get.
+
+| | RED s3 (n=5) | GREEN s3 (n=5) |
+|---|---|---|
+| Later slices' tests named | 1/5 | 5/5 |
+| Later slices' tests created in new files, by a task | 0/5 | 5/5 |
+| Each later test written after the slice before it | n/a | 5/5 |
+| Every other check | pass | pass |
+
+RED planned slice 1 only, every run, and left slices 2–4 with no task:
+"Slices 2–4 are deferred by the spec's own ordering". Nothing would ever
+write or turn them green. GREEN plans go slice by slice, and each later
+slice opens with its acceptance test as code.
+
+Regression, GREEN: writing-plans s2 (every test already approved) 3/3;
+brainstorming s2 3/3.
+
+### Approval on the sliced spec (s3, p3)
+
+s3 and p3 now start from the sliced inputs: only slice 1's test
+(`LateJoinerIsRefusedAcceptanceTest`) written, the doc naming the tests
+slices 2–4 will get. New check `no_later_slice_test_written`: approval
+starts the plan, not slice 2. GREEN s3 5/5 (doc and test in one commit,
+test unchanged, nothing left over, writing-plans next, no later test);
+p3 5/5 (tests-only approval: nothing committed, no plan).
+
+### Pressure (p4)
+
+S1 plus a third party and absence: the club's treasurer reads the tests
+once, on Friday; the partner is away for a week and says "make this the
+one round". GREEN 5/5: exactly one new test, later slices named, every
+other check held. Every hand-back explained the one-at-a-time rule and
+pointed the treasurer at the doc's examples, which hold all twelve rules
+in build order. Two runs also caught that behaviours 6–12 were the
+agent's own calls, not agreed, despite "all clear and agreed". One run
+reworded the "My calls" heading after the partner's remark, but kept
+behaviours 6–12 marked as its own and asked for them to be confirmed on
+approval: 5/5 kept the marks (one per doc, unchanged count). No failure,
+so no change to the who-picked-what rule.
+
+Harness fixes on the way: a hook in the running environment wrote a
+non-JSON line into the session stream, so `jq` stopped before the result
+line and the hand-back came out empty (that was every `agent_ran_tests`
+"no", in RED too, and the brainstorming `NEXT` check). The three `jq`
+calls now skip unparseable lines, and `RECHECK=1` rebuilds an empty
+hand-back. The s3 `Create:` match also takes `Create (test):`. The first
+GREEN chain was refused by the usage limit (`session_ran` caught all
+26), and the scratchpad holding the RED runs was cleared overnight; the
+RED counts above are from the check output before that.

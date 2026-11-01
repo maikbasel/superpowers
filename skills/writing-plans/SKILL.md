@@ -40,6 +40,19 @@ deliverable needs them; split only where a reviewer could meaningfully
 reject one task while approving its neighbor. Each task ends with an
 independently testable deliverable.
 
+## Slices
+
+The design doc's behaviours are slices, in the doc's order, and exactly
+one acceptance test is red at a time. Plan slice by slice: a slice's
+tasks turn its acceptance test green before the next slice starts. The
+first slice's test is approved and committed. Every later slice opens
+with a task that writes its test: in a new file, with the file and name
+the doc gives it, saying exactly what the doc's example says, through
+the DSL; then it runs the acceptance stage and sees it fail. That test
+goes in the plan as code, so your human partner approves it with the
+plan. If an example can't become a test without a call your human
+partner hasn't made, it's a behaviour call.
+
 ## Step Granularity
 
 **Each step is one action with a checkable result:**
@@ -67,9 +80,10 @@ independently testable deliverable.
 **Spec:** [path to the spec/design doc this plan implements — the plan
 argues from the spec, so the spec travels with it; executors read both]
 
-**Acceptance tests:** [path of every approved acceptance test file. They
-are read-only: no task edits them. If the plan needs one changed, stop
-and ask your human partner.]
+**Acceptance tests:** [path of every approved acceptance test file, then
+each later slice's test file, with the task that writes it. Approved
+files are read-only: no task edits them. If the plan needs one changed,
+stop and ask your human partner.]
 
 ## Global Constraints
 
@@ -118,9 +132,9 @@ become acceptance tests your human partner approves. "None" if none.]
   and return types. A task's implementer sees only their own task; this
   block is how they learn the names and types neighboring tasks use.]
 
-**Acceptance tests:** [each acceptance test this task turns green, by its
-exact test name, or "none". Every approved acceptance test is named by
-exactly one task. Before you name one, read its assertions: does the
+**Acceptance tests:** [each acceptance test this task writes or turns
+green, by its exact test name, or "none". Every acceptance test is named
+by exactly one task that turns it green. Before you name one, read its assertions: does the
 code this task writes produce exactly those values, under the spec? If
 not, the test can't be planned. Stop and ask your human partner.]
 
@@ -191,7 +205,7 @@ After writing the complete plan, look at the spec with fresh eyes and check the 
 
 **4. Review Focus:** For each input class or failure mode the spec implies, is there a task whose tests exercise it? The five uncovered ones most likely to bite a person go in the Review Focus section, and each line there gets its test added to the owning task. An empty section means you checked and found none, not that you skipped the check.
 
-**5. Acceptance tests:** List every test in the approved acceptance test files. Is each one named by exactly one task? A test no task names stays red forever. For each, compare its assertions with what its task's unit tests expect. They must agree. If an approved test can't pass, the plan can't fix it: stop, and tell your human partner which test and why, even if they're away. An executor who meets it later will be tempted to edit it.
+**5. Acceptance tests:** List every behaviour in the design doc. Is each one a slice, in the doc's order, with its acceptance test approved already or written by its slice's first task, after the slice before it is green? Is each test named by exactly one task that turns it green? A test no task names stays red forever. For each, compare its assertions with what its task's unit tests expect. They must agree. If an approved test can't pass, the plan can't fix it: stop, and tell your human partner which test and why, even if they're away. An executor who meets it later will be tempted to edit it.
 
 **6. Proportion:** Compare the plan's length to the spec's. A plan several times longer than the spec it implements is a transcript of the program, not a plan. If code blocks are most of the document, replace bodies with signatures, test names and assertions, and check that each step is still unambiguous.
 
@@ -201,8 +215,9 @@ If you find issues, fix them inline. No need to re-review — just fix and move 
 
 **If the plan has behaviour calls, execution waits.** Ask your human
 partner each one, with your recommendation. Add their answers to the
-design doc's Behaviours, then invoke superpowers:writing-acceptance-tests.
-Once those tests are approved, update the plan so a task owns each one.
+design doc's Behaviours, then invoke superpowers:writing-acceptance-tests
+to place each as a slice. Once the spec is approved again, plan them like
+any later slice.
 
 After saving and self-reviewing the plan, link it for your human partner
 to read. If they have already explicitly supplied an execution method, ask

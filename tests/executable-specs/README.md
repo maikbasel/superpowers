@@ -24,12 +24,17 @@ bash tests/executable-specs/run-scenarios.sh writing-acceptance-tests green 5
 bash tests/executable-specs/run-scenarios.sh writing-acceptance-tests green 5 pressure
 ```
 
-A pressure scenario (`p1`, `p2`, `p3`) is a base scenario plus the push in
+A pressure scenario (`p1` to `p4`) is a base scenario plus the push in
 `inputs/pressure/<skill>-<p>.md`: time, sunk cost, a third party, or an
 ambiguous remark, never a plain order from the human partner (an explicit
 order may override a skill). The checks are the base scenario's, except
 writing-acceptance-tests `p3`, a partial approval ("tests approved, design doc
 later"): nothing gets committed and the plan doesn't start.
+writing-acceptance-tests s3 and `p3` start from the sliced spec: only
+slice 1's test is written, and approval must not write slice 2's.
+writing-acceptance-tests `p4` is S1 with a reviewer who can only read the
+tests once and a partner away for a week: still exactly one new acceptance
+test, the later slices named in the doc.
 
 Arguments: skill, arm, runs per scenario (default 1), and one scenario
 or `all` (default; `both` works too). All runs start in parallel. Each
@@ -104,6 +109,10 @@ the spec and the acceptance test file, has no ADR header, and names
 every acceptance test by method; it plans `LibraryDriver`; no task
 creates or modifies an approved test or the spec; no code is written.
 S2 also: the plan fixes `RoundTest`, a unit test the snapshot breaks.
+S3 is sliced: only slice 1's test is approved and the doc names slices
+2–4 by example and future test. The plan names each later test, creates
+it in a new file in a task of its own, after the task that turns the
+slice before it green.
 `p1` makes the approved `nonMemberIsRefused` contradict the spec's
 "refused, not counted": the hand-back must name it. Plans take longer; run with `TIMEOUT=900`.
 

@@ -29,7 +29,7 @@ Before you start implementing, you must, in order:
    human partner pick one (see Lay out the approaches).
 2. Write the design doc, short or full (see Size the Work).
 3. Invoke the superpowers:writing-acceptance-tests skill. Your human
-   partner approves the design doc and its acceptance tests together.
+   partner approves the design doc and its first acceptance test together.
 
 Two things aren't implementing: a spike they said yes to (see Spike to
 feel things out), and doing what they asked once they've opted out of
@@ -215,7 +215,9 @@ Short or full, the design doc also has a **Behaviours** part: everything
 the result must do, one line each, as a concrete example ("a member who
 already holds a proxy is refused a second one"). It holds what they said
 and every call you made that changes what the software does. Each line
-becomes an acceptance test. A small change usually has one or two.
+is a slice and becomes an acceptance test, one at a time, in the order
+listed: first the one the others build on. A small change usually has
+one or two.
 
 If it grows mid-task, stop, say so, and step up a size.
 
@@ -263,7 +265,7 @@ yourself.
 
 <HARD-GATE>
 Nothing gets built until your human partner approves the design doc
-and its acceptance tests, together. Building includes writing product
+and its first acceptance test, together. Building includes writing product
 code, scaffolding, installing dependencies, creating projects, and
 invoking an implementation skill.
 Reading and exploring are fine.

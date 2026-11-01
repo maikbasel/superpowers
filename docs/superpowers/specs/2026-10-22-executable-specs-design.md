@@ -54,28 +54,41 @@ change as little as possible.
   Fowler would supersede a reversed decision explicitly; upstream lives
   with the drift, and so does the fork. A "Reversed by" line comes back
   only if a stale decision misleads a run.
+- **One slice at a time.** Each behaviour is a slice, and exactly one
+  acceptance test is red at a time (GOOS: a feature starts with one
+  failing acceptance test; Specification by Example: agree all examples,
+  automate them one by one). The first slice's test is written before
+  approval. Each later slice's test is written when the slice starts,
+  once the one before is green; the plan carries it as code, so the
+  partner approves it with the plan. Edges are unit tests in the slice.
 - **One spec approval.** The human partner approves the design doc and
-  its acceptance tests together, then the plan. The doc already points to
-  the tests when they see it.
+  its first acceptance test together, then the plan. The doc already
+  points to the test, and names the test each later slice will get.
 - **Commit is approval.** The doc and tests are committed together.
   Committed test cases are read-only. New files are allowed. The DSL and
   drivers keep growing: drivers are plan tasks.
-- **Right reason to fail.** Acceptance tests ship with DSL stubs that fail
-  with "not implemented". Real drivers are plan tasks, built under unit TDD.
+- **Right reason to fail.** A new DSL step fails with "not implemented",
+  or doesn't exist yet when the acceptance tests compile apart from the
+  unit tests: a compile error from code that doesn't exist yet is red, as
+  long as the unit run still compiles. Real drivers are plan tasks, built
+  under unit TDD.
 
 ## The workflow
 
 1. `brainstorming`: as upstream, plus a Behaviours part in the design
    doc and the test format asked once per project. The builder check
    also asks: can each behaviour become a test? The hard gate points to `writing-acceptance-tests`.
-2. `writing-acceptance-tests` (new): each behaviour becomes a test in
-   domain words, with DSL stubs, in a stage of its own. An architecture
+2. `writing-acceptance-tests` (new): the first slice's behaviour becomes
+   a test in domain words, through the DSL, in a stage of its own; the
+   doc names the test each later slice will get. An architecture
    test for each decision that states a checkable structure. They fail
    for the right reason. The doc's behaviour lines then point to the
    tests (or say "no test").
-3. Spec approval: the design doc and tests together, one commit.
-4. `writing-plans`: the header lists the spec and test files. Each task
-   names the acceptance tests it advances; the plan says which task turns
+3. Spec approval: the design doc and the first test together, one commit.
+4. `writing-plans`: the header lists the spec and test files. The plan
+   goes slice by slice: each later slice opens with a task that writes its
+   test from the doc's example, in a new file. Each task names the
+   acceptance tests it writes or advances; the plan says which task turns
    each one green. A case the spec leaves open where the human partner
    could want either outcome is a behaviour call: the plan doesn't decide
    it. The partner answers, it becomes an approved acceptance test, then
