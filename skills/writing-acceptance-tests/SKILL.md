@@ -44,15 +44,19 @@ acceptance test is red at a time.
 ## Write
 
 - One test, for the first slice. Name it after the behaviour.
-- New test cases go in a new file. Committed test cases are approved and
-  read-only, even to add a test next to them.
+- New test cases go in a new file. Approved test cases are frozen: their
+  steps and what they check change only when the requirement changes,
+  never to make them pass. Keep setup, waits and other plumbing in the
+  DSL and drivers, so a test-case file never needs editing, not even to
+  add a test next to them.
 - A new DSL step is missing or a stub that fails with "not implemented",
   e.g. `throw new UnsupportedOperationException("not implemented: <step>")`.
   If the acceptance tests compile on their own (their own source set or
-  module), a step that doesn't exist yet is red. If they compile with
+  module), a step that doesn't exist yet is fine. If they compile with
   the unit tests, a missing step breaks the unit run: stub it.
 - Leave drivers and production code alone. How a step reaches the system
-  is the builder's call, and a plan task.
+  is the builder's call, and the slice's first plan task (see Fail for
+  the right reason).
 - A decision in the design doc that states a checkable structure (a
   layer, a dependency rule, a boundary) gets an architecture test too.
 
@@ -67,16 +71,20 @@ script. Leave the unit run as it is.
 
 ## Fail for the right reason
 
-Run the acceptance stage. The new test fails because its new step
-doesn't exist or says "not implemented". Existing tests still pass, and
-the unit run compiles and is green.
+Approval is about the wording, so nothing has to run yet. Only the unit
+run has to stay green, so the approval commit doesn't break the build.
 
-| You see | Fix |
-|---------|-----|
-| Doesn't compile: a step doesn't exist yet | Red, if the unit run still compiles. Otherwise stub it. |
-| Doesn't compile: a step calls the system | Make it a stub. |
-| Fails on an assertion | A step reached the system. Make it a stub. |
-| Passes | The test is missing its new step, or the behaviour already holds. Tell your human partner which. |
+The red that matters belongs to the slice's first plan task, after
+approval. That task implements the drivers and only
+the production entry points they need to compile and run (a signature,
+an empty screen, a function that does nothing yet). For the first slice
+of a project this is the walking skeleton: the thinnest path through
+build, deploy and test. Then it runs the acceptance stage and sees the
+test reach the system and fail on an assertion whose message names the
+missing behaviour ("no alarm screen within 10 s"). A failure inside a
+driver, a timeout with no message, or "not implemented" isn't it: fix the
+driver or the diagnostic first. No behaviour gets built before this red
+is seen.
 
 ## Point the design doc at the tests
 
@@ -109,11 +117,14 @@ Then invoke superpowers:writing-plans and no other skill.
 |---------|---------|
 | "I'll write all the tests now, while the behaviours are fresh" | One red at a time. The examples are in the doc; later tests go in the plan. |
 | "This edge case needs its own acceptance test" | Edges are unit tests in the slice. |
-| "I'll wire the driver so the test is real" | A driver is a plan task. Stub the DSL step. |
-| "An assertion failure is a better red" | It means the test reached the system. Stub it. |
+| "I'll wire the driver so the test is real" | Not before approval. Drivers are the slice's first plan task. Stub the DSL step. |
+| "I'll run it now to see it red" | Approval is about the wording. The first plan task runs it, against real drivers. |
+| "It failed on 'not implemented', so the test is proven" | The test is proven when it fails on a missing-behaviour assertion. |
 | "This test passes already, good" | Then it tests nothing new. Find the missing step. |
-| "It fits in the existing test file" | Committed test cases are read-only. New file. |
-| "The step doesn't exist yet, that's red enough" | Only if the unit run still compiles. Check it. |
+| "It fits in the existing test file" | Approved test cases are frozen. New file. |
+| "The test needs a setup tweak to pass" | Plumbing goes in the DSL or a driver. The test case stays as approved. |
+| "This assertion is too strict, loosen it" | Only a changed requirement changes a test case. Ask your human partner. |
+| "A missing step can't hurt" | Only if the unit run still compiles. Check it. |
 | "Commit the tests so they're safe" | A commit is the approval. Wait for it. |
 | "Red tests in the unit run are fine until it's built" | Every commit is red then. Give them their own stage. |
 | "I wrote it down, so it's my call" | Writing it isn't choosing it. The doc says who picked what. |

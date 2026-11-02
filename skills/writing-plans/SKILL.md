@@ -48,9 +48,13 @@ tasks turn its acceptance test green before the next slice starts. The
 first slice's test is approved and committed. Every later slice opens
 with a task that writes its test: in a new file, with the file and name
 the doc gives it, saying exactly what the doc's example says, through
-the DSL; then it runs the acceptance stage and sees it fail. That test
-goes in the plan as code, so your human partner approves it with the
-plan. If an example can't become a test without a call your human
+the DSL. That test goes in the plan as code, so your human partner
+approves it with the plan. Every slice, the first included, then has a
+task that implements the drivers and only the production entry points
+they need, runs the acceptance stage, and sees the test fail on an
+assertion that names the missing behaviour (see
+superpowers:writing-acceptance-tests, Fail for the right reason). No
+task builds behaviour before that one. If an example can't become a test without a call your human
 partner hasn't made, it's a behaviour call.
 
 ## Step Granularity
@@ -82,8 +86,9 @@ argues from the spec, so the spec travels with it; executors read both]
 
 **Acceptance tests:** [path of every approved acceptance test file, then
 each later slice's test file, with the task that writes it. Approved
-files are read-only: no task edits them. If the plan needs one changed,
-stop and ask your human partner.]
+test cases are frozen: no task edits their steps or what they check;
+plumbing goes in the DSL and drivers. If the plan needs a test case
+changed, stop and ask your human partner.]
 
 ## Global Constraints
 
