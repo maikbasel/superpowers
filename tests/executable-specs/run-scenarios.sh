@@ -21,6 +21,7 @@
 # Env:   MODEL (default sonnet), BASE_REF (default 0f9581f, the upstream/dev
 #        commit the fork branched from), OUT_DIR (default: a new temp dir),
 #        RECHECK=1 to rescore the runs already in OUT_DIR without new sessions
+#        SKILL_REF=<commit> runs the green arm with the skill text at that commit
 #
 # Results 2026-10-22, 5 runs per scenario: see
 # docs/superpowers/specs/2026-10-22-executable-specs-eval-results.md
@@ -65,7 +66,13 @@ case "$SKILL:$ARM" in
         ;;
     brainstorming:green | writing-acceptance-tests:green | writing-plans:green | test-driven-development:green)
         mkdir -p "$SKILL_DIR"
-        cp -R "$REPO_ROOT/skills/$SKILL" "$SKILL_DIR/"
+        # SKILL_REF: run an earlier skill text against today's checks, the
+        # baseline for an edit to the skill.
+        if [ -n "${SKILL_REF:-}" ]; then
+            git -C "$REPO_ROOT" archive "$SKILL_REF" "skills/$SKILL" | tar -x -C "$SKILL_DIR" --strip-components=1
+        else
+            cp -R "$REPO_ROOT/skills/$SKILL" "$SKILL_DIR/"
+        fi
         ;;
     writing-acceptance-tests:red) ;;
     *) echo "unknown skill/arm: $SKILL $ARM" >&2; exit 2 ;;
