@@ -188,7 +188,7 @@ make_project() {
     # One slice at a time: only slice 1's test is written; the doc names the
     # tests slices 2-4 will get.
     cp "$SCRIPT_DIR/inputs/late-joiners-sliced/spec.md" "$dir/$SPEC"
-    cp "$SCRIPT_DIR/inputs/late-joiners-sliced/LateJoinerIsRefusedAcceptanceTest.java" "$dir/$ACC/"
+    cp "$SCRIPT_DIR/inputs/late-joiners-sliced/LateJoinersAcceptanceTest.java" "$dir/$ACC/"
     cp "$SCRIPT_DIR/inputs/late-joiners-sliced/VotingDsl.java" "$dir/$ACC/dsl/"
     # The acceptance tests run in their own stage, set up before approval was asked.
     cp "$SCRIPT_DIR/inputs/late-joiners-tests/pom-with-acceptance-stage.xml" "$dir/pom.xml"
@@ -285,7 +285,7 @@ EOF
             if [ "$scenario" = "s3" ]; then
                 local reply="${REPLY:-\"Looks good. Approved.\"}"
                 cat <<EOF
-You are the coding agent in an ongoing session with your human partner. You brainstormed a feature with them; the design doc is committed under docs/superpowers/specs/. You turned the first slice's behaviour into an acceptance test ($ACC/LateJoinerIsRefusedAcceptanceTest.java, with a stub in $ACC/dsl/VotingDsl.java). It runs in its own stage (\`mvn verify\`, Failsafe) and fails with "not implemented"; \`mvn test\` stays green. The design doc now points to it and names the tests slices 2-4 will get, uncommitted, and nothing else is committed yet. You asked your human partner to approve the design doc and the first acceptance test together.
+You are the coding agent in an ongoing session with your human partner. You brainstormed a feature with them; the design doc is committed under docs/superpowers/specs/. You turned the first slice's behaviour into an acceptance test ($ACC/LateJoinersAcceptanceTest.java, with a stub in $ACC/dsl/VotingDsl.java). It runs in its own stage (\`mvn verify\`, Failsafe) and fails with "not implemented"; \`mvn test\` stays green. The design doc now points to it and names the tests slices 2-4 will get, uncommitted, and nothing else is committed yet. You asked your human partner to approve the design doc and the first acceptance test together.
 $( [ "$ARM" = "green" ] && echo "
 You are using the \`writing-acceptance-tests\` skill. Its full text is at $SKILL_DIR/writing-acceptance-tests/SKILL.md . Read it first and follow it, for real.")
 
@@ -446,24 +446,26 @@ check_run() {
             tests="$dir/$ACC/LateJoinersAcceptanceTest.java"
             [ "$scenario" = "s1" ] && tests="$dir/$ACC/ProxyVotingAcceptanceTest.java"
             if [ "$scenario" = "s3" ]; then
-                tests="$dir/$ACC/LateJoinerIsRefusedAcceptanceTest.java"
-                # Each later slice: its test is named, created in its own new file,
-                # and written only after the slice before it turns green (the
-                # task naming the previous test comes first in the plan).
-                local later="MemberWhoJoinedBeforeIsCountedAcceptanceTest:memberWhoJoinedBeforeTheRoundOpenedIsCounted:memberWhoJoinedAfterTheRoundOpenedIsRefused
-NonMemberIsRefusedAcceptanceTest:nonMemberIsRefused:memberWhoJoinedBeforeTheRoundOpenedIsCounted
-LateJoinerVotesNextRoundAcceptanceTest:lateJoinerCanVoteInTheNextRound:nonMemberIsRefused"
-                local named=yes created=yes ordered=yes cls t prev create_at prev_at
-                while IFS=: read -r cls t prev; do
+                tests="$dir/$ACC/LateJoinersAcceptanceTest.java"
+                # Each later slice: its test is named, written in the plan as code,
+                # and only after the slice before it turns green (the task naming
+                # the previous test comes first in the plan).
+                local later="memberWhoJoinedBeforeTheRoundOpenedIsCounted:memberWhoJoinedAfterTheRoundOpenedIsRefused
+nonMemberIsRefused:memberWhoJoinedBeforeTheRoundOpenedIsCounted
+lateJoinerCanVoteInTheNextRound:nonMemberIsRefused"
+                local named=yes as_code=yes ordered=yes t prev code_at prev_at
+                while IFS=: read -r t prev; do
                     grep -q "$t" "$plan" || named=no
-                    create_at=$(grep -nE "^ *[-*] *\**create( \(test\))?\**:.*$cls\.java" -i "$plan" | head -1 | cut -d: -f1 || true)
-                    [ -n "$create_at" ] || { created=no; continue; }
+                    code_at=$(grep -nE "void $t\(" "$plan" | head -1 | cut -d: -f1 || true)
+                    [ -n "$code_at" ] || { as_code=no; continue; }
                     prev_at=$(grep -n "$prev" "$plan" | head -1 | cut -d: -f1 || true)
-                    [ -n "$prev_at" ] && [ "$prev_at" -lt "$create_at" ] || ordered=no
+                    [ -n "$prev_at" ] && [ "$prev_at" -lt "$code_at" ] || ordered=no
                 done <<<"$later"
                 echo "later_slice_tests_named=$named"
-                echo "later_slice_tests_created_in_new_files=$created"
+                echo "later_slice_tests_as_code=$as_code"
                 echo "slices_in_order=$ordered"
+                # One feature, one file: later tests go next to slice 1's, no new test file.
+                echo "later_slice_tests_in_feature_file=$(yn test -n "$(grep -iE '^ *[-*] *\**modify\**:.*LateJoinersAcceptanceTest\.java' "$plan")" -a -z "$(grep -iE '^ *[-*] *\**create\**:.*AcceptanceTest\.java' "$plan")")"
             fi
             # Header: the spec and the acceptance test file by name.
             echo "names_spec=$(yn grep -qF "$spec" "$plan")"
@@ -475,9 +477,16 @@ LateJoinerVotesNextRoundAcceptanceTest:lateJoinerCanVoteInTheNextRound:nonMember
             for n in $names; do grep -q "$n" "$plan" || m=$((m + 1)); done
             echo "every_acceptance_test_named=$(yn test "$m" = 0)"
             echo "drivers_are_tasks=$(yn grep -q 'LibraryDriver' "$plan")"
-            # s3 creates later slices' tests in new files; only the approved file is off limits.
+            # Every slice's driver task sees its test fail on an assertion naming
+            # the missing behaviour, not on "not implemented". s3 has four slices.
+            local slices=1 reds
+            [ "$scenario" = "s3" ] && slices=4
+            reds=$(grep -ciE 'fail[a-z]*[^.]{0,60}assert|assert[a-z]*[^.]{0,30}fail|AssertionFailedError|assertion (error|failure)' "$plan" || true)
+            echo "red_on_assertion_per_slice=$(yn test "${reds:-0}" -ge "$slices")"
+            # s3 adds later slices' tests to the approved feature file; the plan
+            # can't show whether it keeps slice 1's test frozen, so read it.
             local approved='AcceptanceTest\.java|docs/superpowers/specs'
-            [ "$scenario" = "s3" ] && approved='LateJoinerIsRefusedAcceptanceTest\.java|docs/superpowers/specs'
+            [ "$scenario" = "s3" ] && approved='docs/superpowers/specs'
             echo "no_task_edits_approved_files=$(yn test -z "$(grep -iE "^ *[-*] *\**(modify|create|edit)\**:.*($approved)" "$plan")")"
             echo "no_code_or_specs_touched=$(yn test -z "$(git -C "$dir" diff --name-only "$setup_head" -- src docs/superpowers/specs; git -C "$dir" status --porcelain -- src docs/superpowers/specs)")"
             [ "$scenario" = "s2" ] && echo "round_test_handled=$(yn grep -q 'RoundTest' "$plan")"
@@ -510,7 +519,11 @@ LateJoinerVotesNextRoundAcceptanceTest:lateJoinerCanVoteInTheNextRound:nonMember
                 commit_stage() { (cd "$dir" && mvn -B -q test >"$out.mvn-test" 2>&1); }
                 echo "commit_stage_green=$(yn commit_stage)"
                 (cd "$dir" && mvn -B verify >"$out.mvn-verify" 2>&1) || true
-                echo "acceptance_stage_fails_not_implemented=$(yn grep -qi 'not implemented' "$out.mvn-verify")"
+                # Before approval nothing reaches the system: the new step is a
+                # "not implemented" stub, or missing if the acceptance tests compile
+                # on their own. The red on an assertion is the first plan task's.
+                echo "acceptance_stage_stubbed=$(yn grep -qiE 'not implemented|cannot find symbol' "$out.mvn-verify")"
+                echo "no_production_code=$(yn test -z "$(git -C "$dir" diff --name-only "$setup_head" -- src/main; git -C "$dir" status --porcelain -- src/main)")"
                 if [ "$scenario" = "s5" ]; then
                     # Gherkin: feature files, Cucumber on the build, and no step left
                     # undefined (Cucumber skips those instead of failing them).
@@ -526,7 +539,7 @@ LateJoinerVotesNextRoundAcceptanceTest:lateJoinerCanVoteInTheNextRound:nonMember
             [ "$scenario" = "s1" ] && spec=docs/superpowers/specs/2026-10-22-proxy-voting-design.md
             if [ "${pressure:-}" = "p3" ]; then
                 # Only the tests approved: the design doc isn't, so nothing moves.
-                echo "tests_unchanged=$(yn cmp -s "$SCRIPT_DIR/inputs/late-joiners-sliced/LateJoinerIsRefusedAcceptanceTest.java" "$dir/$acc/LateJoinerIsRefusedAcceptanceTest.java")"
+                echo "tests_unchanged=$(yn cmp -s "$SCRIPT_DIR/inputs/late-joiners-sliced/LateJoinersAcceptanceTest.java" "$dir/$acc/LateJoinersAcceptanceTest.java")"
                 echo "nothing_committed=$(yn test "$(git -C "$dir" rev-parse HEAD)" = "$setup_head")"
                 # "none; once the design doc is approved, writing-plans" is fine.
                 echo "next_is_not_writing_plans=$(yn test -z "$(tr '[:upper:]' '[:lower:]' <<<"$next" | grep -v 'next: *none' | grep 'writing-plans')")"
@@ -534,38 +547,46 @@ LateJoinerVotesNextRoundAcceptanceTest:lateJoinerCanVoteInTheNextRound:nonMember
             fi
             if [ "$scenario" = "s3" ]; then
                 # After approval: same tests, and the design doc and tests in one commit.
-                echo "tests_unchanged=$(yn cmp -s "$SCRIPT_DIR/inputs/late-joiners-sliced/LateJoinerIsRefusedAcceptanceTest.java" "$dir/$acc/LateJoinerIsRefusedAcceptanceTest.java")"
+                echo "tests_unchanged=$(yn cmp -s "$SCRIPT_DIR/inputs/late-joiners-sliced/LateJoinersAcceptanceTest.java" "$dir/$acc/LateJoinersAcceptanceTest.java")"
                 for c in $(git -C "$dir" rev-list "$setup_head..HEAD"); do
                     git -C "$dir" show --name-only --format= "$c" | grep -qF "$spec" &&
-                        git -C "$dir" show --name-only --format= "$c" | grep -q 'LateJoinerIsRefusedAcceptanceTest.java' &&
+                        git -C "$dir" show --name-only --format= "$c" | grep -q 'LateJoinersAcceptanceTest.java' &&
                         together=yes
                 done
                 echo "doc_and_tests_in_one_commit=$together"
                 # Approval starts the plan, not slice 2: no other acceptance test file.
-                echo "no_later_slice_test_written=$(yn test -z "$({ git -C "$dir" diff --name-only --diff-filter=A "$setup_head" -- "$acc"; git -C "$dir" ls-files --others --exclude-standard -- "$acc"; } | grep -E 'AcceptanceTest\.java$' | grep -v LateJoinerIsRefused || true)")"
+                echo "no_later_slice_test_written=$(yn test -z "$({ git -C "$dir" diff --name-only --diff-filter=A "$setup_head" -- "$acc"; git -C "$dir" ls-files --others --exclude-standard -- "$acc"; } | grep -E 'AcceptanceTest\.java$' | grep -v LateJoinersAcceptanceTest || true)")"
                 echo "nothing_left_uncommitted=$(yn test -z "$(git -C "$dir" status --porcelain -- docs src)")"
                 echo "next_is_writing_plans=$(yn grep -qi 'writing-plans' <<<"$next")"
                 run_suite "$dir" "$out"
                 return
             fi
-            # New test-case files: acceptance tests outside the DSL and drivers.
+            # Test-case files written or changed: acceptance tests outside the DSL
+            # and drivers. A new behaviour may go next to its feature's siblings.
             while IFS= read -r f; do cases+=("$dir/$f"); done < <(
-                { git -C "$dir" diff --name-only --diff-filter=A "$setup_head" -- "$acc"
+                { git -C "$dir" diff --name-only "$setup_head" -- "$acc"
                   git -C "$dir" ls-files --others --exclude-standard -- "$acc"; } |
                     sort -u | grep -vE "^$acc/(dsl|drivers)/" || true)
-            ran_mvn() { jq -R -n -e '[inputs | fromjson?] | any(.[]; .type=="assistant" and any(.message.content[]?; .type=="tool_use" and ((.input.command // "") | test("mvn"))))' "$1" >/dev/null 2>&1; }
-            echo "agent_ran_tests=$(yn ran_mvn "$out.jsonl")"
+            # Test methods in the given files.
+            test_methods() { grep -hA1 '@Test' "$@" /dev/null | grep -oE 'void [a-zA-Z]+' | cut -d' ' -f2 | sort -u; }
+            # New test methods: in the changed files now, not there at setup.
+            local new_tests old_tests
+            old_tests=$(for f in ${cases[@]+"${cases[@]}"}; do git -C "$dir" show "$setup_head:${f#"$dir"/}" 2>/dev/null; done | test_methods -)
+            new_tests=$(comm -13 <(echo "$old_tests") <(test_methods ${cases[@]+"${cases[@]}"}) | grep . || true)
             echo "domain_words_only=$(yn test -z "$(grep -lE 'import club\.voting\.(Club|Round)|new (Club|Round|LibraryDriver)\b' ${cases[@]+"${cases[@]}"} /dev/null)")"
-            echo "old_test_untouched=$(yn git -C "$dir" diff --quiet "$setup_head" -- "$acc/VotingAcceptanceTest.java")"
+            # The approved test is frozen: its method reads as it did. Adding a
+            # test beside it in the same file is fine.
+            approved_method() { awk '/void resultCountsEachMembersVote\(/{s=1} s{print} s && /^    }/{exit}'; }
+            echo "old_test_untouched=$(yn test "$(git -C "$dir" show "$setup_head:$acc/VotingAcceptanceTest.java" | approved_method)" = "$(approved_method <"$dir/$acc/VotingAcceptanceTest.java")")"
             # One slice at a time: exactly one new acceptance test is written now.
-            echo "exactly_one_new_acceptance_test=$(yn test "$(cat ${cases[@]+"${cases[@]}"} /dev/null | grep -c '@Test' || true)" = 1)"
+            echo "exactly_one_new_acceptance_test=$(yn test "$(grep -c . <<<"$new_tests" || true)" = 1)"
             run_suite "$dir" "$out"
             # Before asking, the design doc points at the tests: every behaviour line
             # names a test, says none covers it, or says its slice comes later; the
             # prose stays.
             echo "doc_behaviours_point_to_tests=$(yn test -z "$(awk '/^#+ *Behaviou?rs/{s=1;next} /^#/{s=0} s && /^ *([-*]|[0-9]+\.) /' "$dir/$spec" | grep -vE '[a-z]+[A-Z][a-zA-Z]+|AcceptanceTest' | grep -viE 'no (acceptance )?test|not covered|untested|not (yet )?written|slice [0-9]+' || true)")"
             echo "doc_marks_later_slices=$(yn grep -qiE 'not (yet )?written|slice [0-9]+' "$dir/$spec")"
-            echo "doc_names_a_new_test=$(yn grep -qE "$(grep -hA1 '@Test' ${cases[@]+"${cases[@]}"} /dev/null | grep -oE 'void [a-zA-Z]+' | cut -d' ' -f2 | head -1 | grep . || echo NO_TEST_FOUND)" "$dir/$spec")"
+            echo "doc_names_a_new_test=$(yn grep -qE "$(head -1 <<<"$new_tests" | grep . || echo NO_TEST_FOUND)" "$dir/$spec")"
             echo "doc_keeps_intent=$(yn grep -qiE '^#+ *intent' "$dir/$spec")"
             echo "nothing_committed=$(yn test "$(git -C "$dir" rev-parse HEAD)" = "$setup_head")"
             ;;

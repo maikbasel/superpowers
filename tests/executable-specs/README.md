@@ -90,12 +90,15 @@ skill starts from what the one before actually produces.
 hand-back names `writing-acceptance-tests` next; no code under `src/`
 or `pom.xml` changed.
 
-**writing-acceptance-tests:** the agent ran `mvn`; new test cases use
-domain words only (no `Club`, `Round` or driver); the existing acceptance
-test is untouched and still passes; nothing under `src/main` or
+**writing-acceptance-tests:** new test cases use domain words only (no
+`Club`, `Round` or driver); a new test may sit beside its feature's
+siblings, but the approved test's method is unchanged and still passes; nothing under `src/main` or
 `acceptance/drivers` changed; the script's own `mvn test` compiles, every
 failing new acceptance test says "not implemented", and a new test that
-already passes is named in the hand-back ("passes already"); the
+already passes is named in the hand-back ("passes already"). Nothing
+has to run before approval, so whether the agent ran `mvn` isn't
+checked. s4 and s5: the acceptance stage fails on a stub ("not
+implemented") or a missing step, and `src/main` is untouched. The
 design doc points at the tests (every behaviour line names a test or
 says none covers it, one new test is named, the Intent part stays) and
 nothing is committed (approval hasn't happened yet). For s3: the tests
@@ -110,9 +113,11 @@ every acceptance test by method; it plans `LibraryDriver`; no task
 creates or modifies an approved test or the spec; no code is written.
 S2 also: the plan fixes `RoundTest`, a unit test the snapshot breaks.
 S3 is sliced: only slice 1's test is approved and the doc names slices
-2–4 by example and future test. The plan names each later test, creates
-it in a new file in a task of its own, after the task that turns the
-slice before it green.
+2–4 by example and future test. The plan names each later test and writes it as code into
+the feature's file (`LateJoinersAcceptanceTest.java`, no new test file),
+after the task that turns the slice before it green. Every plan has,
+per slice, a driver task that expects the test to fail on an assertion,
+not on "not implemented" (`red_on_assertion_per_slice`).
 `p1` makes the approved `nonMemberIsRefused` contradict the spec's
 "refused, not counted": the hand-back must name it. Plans take longer; run with `TIMEOUT=900`.
 

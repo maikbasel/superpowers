@@ -3,7 +3,7 @@ package club.voting.acceptance;
 import club.voting.acceptance.dsl.VotingDsl;
 import org.junit.jupiter.api.Test;
 
-class LateJoinerIsRefusedAcceptanceTest {
+class LateJoinersAcceptanceTest {
     private final VotingDsl voting = new VotingDsl();
 
     @Test

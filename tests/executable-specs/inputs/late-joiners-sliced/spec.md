@@ -18,10 +18,10 @@ Existing code: `Club` keeps a member set; `Round.vote` accepts anyone and checks
 
 ## Behaviours
 One slice at a time, in this order: each slice's acceptance test is written when the slice starts, once the slice before it is green.
-1. A member who joined after the round opened is refused with "joined after this round opened", tally unchanged: `src/test/java/club/voting/acceptance/LateJoinerIsRefusedAcceptanceTest.java`, `memberWhoJoinedAfterTheRoundOpenedIsRefused`
-2. Slice 2, test not yet written (`MemberWhoJoinedBeforeIsCountedAcceptanceTest.memberWhoJoinedBeforeTheRoundOpenedIsCounted`): alice joins, the round for "new-clubhouse" opens, alice votes yes; her vote is accepted, and when the round closes the result is 1 yes, 0 no.
-3. Slice 3, test not yet written (`NonMemberIsRefusedAcceptanceTest.nonMemberIsRefused`): alice joins, the round opens, mallory, who never joined, votes yes; the vote is refused with "not a member", and the result is 0 yes, 0 no.
-4. Slice 4, test not yet written (`LateJoinerVotesNextRoundAcceptanceTest.lateJoinerCanVoteInTheNextRound`): alice joins, the round for "new-clubhouse" opens, carol joins, the round for "new-fence" opens, carol votes yes in "new-fence"; her vote is accepted and "new-fence" ends 1 yes, 0 no.
+1. A member who joined after the round opened is refused with "joined after this round opened", tally unchanged: `src/test/java/club/voting/acceptance/LateJoinersAcceptanceTest.java`, `memberWhoJoinedAfterTheRoundOpenedIsRefused`
+2. Slice 2, test not yet written (`LateJoinersAcceptanceTest.memberWhoJoinedBeforeTheRoundOpenedIsCounted`): alice joins, the round for "new-clubhouse" opens, alice votes yes; her vote is accepted, and when the round closes the result is 1 yes, 0 no.
+3. Slice 3, test not yet written (`LateJoinersAcceptanceTest.nonMemberIsRefused`): alice joins, the round opens, mallory, who never joined, votes yes; the vote is refused with "not a member", and the result is 0 yes, 0 no.
+4. Slice 4, test not yet written (`LateJoinersAcceptanceTest.lateJoinerCanVoteInTheNextRound`): alice joins, the round for "new-clubhouse" opens, carol joins, the round for "new-fence" opens, carol votes yes in "new-fence"; her vote is accepted and "new-fence" ends 1 yes, 0 no.
 5. A refused vote leaves an earlier vote by the same member untouched: no test covers this. Under the snapshot a refused voter has no earlier vote in that round.
 
 ## Decided by the human partner
