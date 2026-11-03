@@ -46,8 +46,8 @@ The design doc's behaviours are slices, in the doc's order, and exactly
 one acceptance test is red at a time. Plan slice by slice: a slice's
 tasks turn its acceptance test green before the next slice starts. The
 first slice's test is approved and committed. Every later slice opens
-with a task that writes its test: in a new file, with the file and name
-the doc gives it, saying exactly what the doc's example says, through
+with a task that writes its test: in its feature's file, with the file
+and name the doc gives it, saying exactly what the doc's example says, through
 the DSL. That test goes in the plan as code, so your human partner
 approves it with the plan. Every slice, the first included, then has a
 task that implements the drivers and only the production entry points

@@ -44,11 +44,14 @@ acceptance test is red at a time.
 ## Write
 
 - One test, for the first slice. Name it after the behaviour.
-- New test cases go in a new file. Approved test cases are frozen: their
-  steps and what they check change only when the requirement changes,
-  never to make them pass. Keep setup, waits and other plumbing in the
-  DSL and drivers, so a test-case file never needs editing, not even to
-  add a test next to them.
+- Group test cases by feature: one file per feature, named after it,
+  like the scenarios of one Gherkin feature file. A new feature gets a
+  new file; a new behaviour of an existing feature goes next to its
+  siblings. Approved test cases are frozen: their steps and what they
+  check change only when the requirement changes, never to make them
+  pass. Adding a test case beside them leaves them as they are. Keep
+  setup, waits and other plumbing in the DSL and drivers, so an approved
+  test case never needs editing.
 - A new DSL step is missing or a stub that fails with "not implemented",
   e.g. `throw new UnsupportedOperationException("not implemented: <step>")`.
   If the acceptance tests compile on their own (their own source set or
@@ -121,7 +124,7 @@ Then invoke superpowers:writing-plans and no other skill.
 | "I'll run it now to see it red" | Approval is about the wording. The first plan task runs it, against real drivers. |
 | "It failed on 'not implemented', so the test is proven" | The test is proven when it fails on a missing-behaviour assertion. |
 | "This test passes already, good" | Then it tests nothing new. Find the missing step. |
-| "It fits in the existing test file" | Approved test cases are frozen. New file. |
+| "While I add mine, I'll tidy the approved test next to it" | Add yours; leave theirs exactly as approved. Only a changed requirement changes it. |
 | "The test needs a setup tweak to pass" | Plumbing goes in the DSL or a driver. The test case stays as approved. |
 | "This assertion is too strict, loosen it" | Only a changed requirement changes a test case. Ask your human partner. |
 | "A missing step can't hurt" | Only if the unit run still compiles. Check it. |
