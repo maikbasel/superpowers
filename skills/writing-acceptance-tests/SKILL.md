@@ -45,9 +45,10 @@ acceptance test is red at a time.
 
 - One test, for the first slice. Name it after the behaviour.
 - Group test cases by feature: one file per feature, named after it,
-  like the scenarios of one Gherkin feature file. A new feature gets a
-  new file; a new behaviour of an existing feature goes next to its
-  siblings. Approved test cases are frozen: their steps and what they
+  like the scenarios of one Gherkin feature file. If the design doc
+  extends an existing feature or names its test file, the new test goes
+  in that file, next to its siblings. Otherwise it is a new feature and
+  gets a new file. Approved test cases are frozen: their steps and what they
   check change only when the requirement changes, never to make them
   pass. Adding a test case beside them leaves them as they are. Keep
   setup, waits and other plumbing in the DSL and drivers, so an approved
