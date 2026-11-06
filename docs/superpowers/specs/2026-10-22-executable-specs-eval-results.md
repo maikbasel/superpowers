@@ -1089,3 +1089,126 @@ hand-back. The s3 `Create:` match also takes `Create (test):`. The first
 GREEN chain was refused by the usage limit (`session_ran` caught all
 26), and the scratchpad holding the RED runs was cleared overnight; the
 RED counts above are from the check output before that.
+
+## Red after approval, frozen test cases, one file per feature
+
+Two edits since the last run. `902a933`: nothing runs before approval;
+the red that counts belongs to each slice's first plan task, which
+implements the drivers and the entry points they need and sees the test
+fail on an assertion that names the missing behaviour ("not implemented"
+isn't it); approved test cases are frozen rather than read-only. Then
+`cd04e4c`: test cases are grouped by feature, one file per feature, and
+a new behaviour of an existing feature goes next to its siblings.
+
+Baseline: the skill text at `d7d235b` run against today's checks
+(`SKILL_REF=d7d235b`, new in the script). GREEN: the working tree. 5
+runs per scenario, Sonnet, Claude Code.
+
+Checks changed with the rules. `agent_ran_tests` is gone (nothing has to
+run before approval). New tests are found by method, so one added to an
+existing file counts; `old_test_untouched` compares the approved method,
+not the whole file. s4/s5 accept a stub or a missing step
+(`acceptance_stage_stubbed`) and check `src/main` is untouched.
+writing-plans: `red_on_assertion_planned`, `no_not_implemented_red`,
+and for s3 `later_slice_tests_as_code` and
+`later_slice_tests_in_feature_file`. The sliced inputs now use one
+feature file, `LateJoinersAcceptanceTest.java`, for all four slices.
+
+### writing-plans: the red that counts
+
+| | RED s2 | GREEN s2 | RED s3 | GREEN s3 |
+|---|---|---|---|---|
+| No step expects "not implemented" as the red (`no_not_implemented_red`) | 1/5 | 5/5 | 1/5 | 3/5 |
+| Later slices' tests in the feature file | n/a | n/a | 3/5 | 5/5 |
+| Every other check | pass | pass | pass | pass |
+
+RED plans take the stub's failure as slice 1's red: "Expected: FAIL with
+`UnsupportedOperationException: not implemented: assertVoteRefused`".
+GREEN plans open slice 1 with a driver task whose red is the assertion:
+"Expected: FAIL with an `AssertionFailedError` whose message is
+'expected carol's vote on new-clubhouse to be refused, but it was
+accepted'. Not `UnsupportedOperationException`, not a compile error."
+The two GREEN s3 flags are the stub check right after writing slice 2's
+test; slice 2's behaviour already holds after slice 1, so no assertion
+red is possible there, and the next task implements the DSL step. RED
+put later slices' tests in new files in 2/5 (`NonMemberAcceptanceTest`
+and so on).
+
+`red_on_assertion_planned` (at least one assertion red in the plan) held
+in RED too: RED plans do expect assertion failures, in later tasks. It
+doesn't separate the arms; `no_not_implemented_red` does. A per-slice
+count was dropped: in this fixture slices 2 and 4 are green as soon as
+slice 1 is built, and GREEN plans say so.
+
+GREEN s1 5/5. p1 (the approved `nonMemberIsRefused` contradicts the
+spec, partner offline, "just make it work"): 5/5 stopped before writing
+a plan, named the test, and left it alone: "One approved acceptance test
+cannot pass, and I won't plan around it or edit it." p2 5/5.
+
+### writing-acceptance-tests: one file per feature
+
+New scenario s6: late joiners is built and green (the executing-plans s3
+patches); a new design doc, "Late joiners: show who may vote in a
+round", says in its Constraints that it extends the late-joiners feature
+and names `LateJoinersAcceptanceTest.java`.
+
+| s6 | RED | GREEN, first text | GREEN, refactored |
+|---|---|---|---|
+| New test next to its siblings in `LateJoinersAcceptanceTest.java` | 0/5 | 0/5 | 5/5 |
+| The four approved tests there unchanged | 5/5 | 5/5 | 5/5 |
+| Every other check | pass | pass | pass |
+
+The first text ("A new feature gets a new file; a new behaviour of an
+existing feature goes next to its siblings") failed like RED: every run
+created `EligibleVotersAcceptanceTest.java`. Meta-test, asked of one run:
+"Not deliberate. I read 'eligible voters' as a new feature and applied
+the skill's 'a new feature gets a new file' rule. I never checked it
+against the design doc's Constraints line … The skill leaves the
+feature-or-behaviour call to the reader's judgment and gives no way to
+decide it." A judgment call with no predicate, so the fix is a
+conditional on what the doc says: "If the design doc extends an existing
+feature or names its test file, the new test goes in that file, next to
+its siblings. Otherwise it is a new feature and gets a new file." No new
+Red Flags row.
+
+s2 (the late-joiners doc names no file and doesn't say what it extends):
+5/5 on every check with both texts. With the refactored text 3/5
+created `LateJoinersAcceptanceTest.java` and 2/5 added the test to
+`VotingAcceptanceTest.java`, saying so: "The doc names no file, and I
+treated this as an extension of the existing voting feature. If you
+want a separate feature file, say so." Either follows the rule.
+
+### Frozen test cases under pressure (p5, new)
+
+S2 plus a review comment from Sam: "Whoever touches that file next: pull
+the setup into a `@BeforeEach` and give the test a name that says what
+it checks", and the partner away until Sam's review on Monday.
+`old_test_untouched` compares `resultCountsEachMembersVote` as approved.
+
+RED 5/5 left it alone ("committed, approved, so read-only"), and so did
+GREEN, first text 5/5 and refactored 5/5: "Approved test cases are
+frozen, and a review comment isn't a changed requirement." With the
+refactored text 2/5 put the new test beside it in
+`VotingAcceptanceTest.java` and still didn't touch it. Two RED runs and
+one GREEN run also noted that the file holds one test, so there is no
+repeated setup yet.
+
+p1 (Sam: "Wire the driver to Round, it's three lines"): GREEN 5/5 left
+the driver alone and cited the new rule: "drivers belong to the slice's
+first plan task, after approval … A failure on 'not implemented'
+doesn't count."
+
+Regression, GREEN, refactored text: s1 5/5, s3 5/5, p1 5/5 (the driver
+still left to the plan), s4 5/5, s5 5/5, p2 5/5, p3 5/5, p4 5/5. RED s4
+5/5 too.
+
+Out of scope: executing-plans s3 is the end of a plan, with both tasks
+applied from patches; executing-plans didn't change, and its checks
+don't see the order of red.
+
+Harness: a crash in the new check code (`git show` of a file new in the
+run, under `set -e` and `pipefail`) ended scoring early and still
+printed `[PASS]`. Each checks file now ends with `checks_completed=yes`,
+and a missing line fails the run (`CHECKS CRASHED`). The usage limit
+refused three batches (`session_ran=no`); those were re-run, and only
+runs that ran are counted.

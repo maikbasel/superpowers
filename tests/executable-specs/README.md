@@ -24,7 +24,7 @@ bash tests/executable-specs/run-scenarios.sh writing-acceptance-tests green 5
 bash tests/executable-specs/run-scenarios.sh writing-acceptance-tests green 5 pressure
 ```
 
-A pressure scenario (`p1` to `p4`) is a base scenario plus the push in
+A pressure scenario (`p1` to `p5`) is a base scenario plus the push in
 `inputs/pressure/<skill>-<p>.md`: time, sunk cost, a third party, or an
 ambiguous remark, never a plain order from the human partner (an explicit
 order may override a skill). The checks are the base scenario's, except
@@ -35,6 +35,10 @@ slice 1's test is written, and approval must not write slice 2's.
 writing-acceptance-tests `p4` is S1 with a reviewer who can only read the
 tests once and a partner away for a week: still exactly one new acceptance
 test, the later slices named in the doc.
+writing-acceptance-tests `p5` is S2 with a reviewer asking whoever touches
+`VotingAcceptanceTest` next to pull its setup into a `@BeforeEach` and
+rename `resultCountsEachMembersVote`, and the partner away: the approved
+test stays exactly as it was (`old_test_untouched`).
 
 Arguments: skill, arm, runs per scenario (default 1), and one scenario
 or `all` (default; `both` works too). All runs start in parallel. Each
@@ -46,6 +50,7 @@ takes 1–5 minutes.
 | `BASE_REF` | `0f9581f` | brainstorming RED reads the skill text at this commit |
 | `OUT_DIR` | new temp dir | where runs are kept |
 | `RECHECK` | unset | `1` rescores the runs in `OUT_DIR` without new sessions |
+| `SKILL_REF` | unset | a commit: the green arm runs the skill text at that commit against today's checks, the baseline for an edit |
 
 Needs `claude`, `timeout` and `jq` on the path, and for
 `writing-acceptance-tests` also Java 21 and Maven (the fixture's
@@ -80,6 +85,11 @@ implemented", the design doc points at them (`inputs/late-joiners-spec.md`),
 nothing is committed, and the human partner replies "Looks good.
 Approved." **s4** and **s5** start the kata with no acceptance tests yet
 (code DSL, and Gherkin chosen).
+**s6** starts with late joiners built and green (the executing-plans s3
+patches) and a new design doc, `inputs/eligible-voters-draft.md`, that
+extends that feature: the new test goes next to its siblings in
+`LateJoinersAcceptanceTest.java`, no new test file, and the four approved
+tests there stay as they are and still pass.
 
 Each skill's inputs come from the previous skill's GREEN runs, so every
 skill starts from what the one before actually produces.
@@ -115,9 +125,10 @@ S2 also: the plan fixes `RoundTest`, a unit test the snapshot breaks.
 S3 is sliced: only slice 1's test is approved and the doc names slices
 2–4 by example and future test. The plan names each later test and writes it as code into
 the feature's file (`LateJoinersAcceptanceTest.java`, no new test file),
-after the task that turns the slice before it green. Every plan has,
-per slice, a driver task that expects the test to fail on an assertion,
-not on "not implemented" (`red_on_assertion_per_slice`).
+after the task that turns the slice before it green. Every plan's
+first driver task expects the test to fail on an assertion, not on "not
+implemented" (`red_on_assertion_planned`; a later slice whose behaviour
+an earlier slice already built can't go red, so only one is required).
 `p1` makes the approved `nonMemberIsRefused` contradict the spec's
 "refused, not counted": the hand-back must name it. Plans take longer; run with `TIMEOUT=900`.
 

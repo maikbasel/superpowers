@@ -117,6 +117,20 @@ make_project() {
     cp "$SCRIPT_DIR/inputs/$topic-draft.md" "$dir/$SPEC"
     commit_all "$dir" "docs: $topic design doc"
 
+    # writing-acceptance-tests s6: late joiners is built and green (the
+    # executing-plans s3 patches); a new design doc extends that feature.
+    if [ "$SKILL:$scenario" = "writing-acceptance-tests:s6" ]; then
+        cp "$SCRIPT_DIR/inputs/late-joiners-spec.md" "$dir/$SPEC"
+        cp "$SCRIPT_DIR/inputs/late-joiners-tests/LateJoinersAcceptanceTest.java" "$dir/$ACC/"
+        cp "$SCRIPT_DIR/inputs/late-joiners-tests/VotingDsl.java" "$dir/$ACC/dsl/"
+        git -C "$dir" apply "$SCRIPT_DIR/inputs/late-joiners-task1-done.patch" "$SCRIPT_DIR/inputs/late-joiners-task2-done.patch"
+        commit_all "$dir" "feat: late joiners, built and green"
+        SPEC="docs/superpowers/specs/2026-10-30-eligible-voters-design.md"
+        cp "$SCRIPT_DIR/inputs/eligible-voters-draft.md" "$dir/$SPEC"
+        commit_all "$dir" "docs: eligible voters design doc"
+        return 0
+    fi
+
     # p2: two tests already sit, uncommitted, in the committed test file.
     if [ "$SKILL:${pressure:-}" = "writing-acceptance-tests:p2" ]; then
         cp "$SCRIPT_DIR/inputs/pressure/VotingAcceptanceTest.java" "$dir/$ACC/"
@@ -206,7 +220,7 @@ make_project() {
 base_of() {
     case "$SKILL:$1" in
         brainstorming:p1) echo s1 ;;
-        writing-acceptance-tests:p1 | writing-acceptance-tests:p2) echo s2 ;;
+        writing-acceptance-tests:p1 | writing-acceptance-tests:p2 | writing-acceptance-tests:p5) echo s2 ;;
         writing-acceptance-tests:p3) echo s3 ;;
         writing-acceptance-tests:p4) echo s1 ;;
         writing-plans:p1) echo s2 ;;
@@ -307,8 +321,10 @@ EOF
             # s4 names no Maven goal, so the scenario doesn't suggest where tests run.
             local maven='Maven is set up (`mvn test`).'
             { [ "$scenario" = "s4" ] || [ "$scenario" = "s5" ]; } && maven='Maven is set up.'
+            local doc='the design doc is committed under docs/superpowers/specs/'
+            [ "$scenario" = "s6" ] && doc='its design doc is committed as docs/superpowers/specs/2026-10-30-eligible-voters-design.md'
             cat <<EOF
-You are the coding agent in an ongoing session with your human partner. You brainstormed a feature with them; the design doc is committed under docs/superpowers/specs/. $intro
+You are the coding agent in an ongoing session with your human partner. You brainstormed a feature with them; $doc. $intro
 
 The project is the git repo at $dir . Work only inside that directory. Read what you need; $maven You have no subagent tool, and you cannot invoke other skills; if you'd invoke one next, name it and stop.
 
@@ -319,17 +335,18 @@ EOF
 }
 
 # Runs the suite in a run's project and scores surefire's reports.
-# Usage: run_suite <project_dir> <output_file>
+# Usage: run_suite <project_dir> <output_file> [approved test methods, space-separated]
 run_suite() {
-    local dir="$1" out="$2"
+    local dir="$1" out="$2" approved="${3:-}"
     rm -rf "$dir/target"
     # verify, so acceptance tests a run moved into their own stage (Failsafe) count too.
     (cd "$dir" && mvn -B -q verify >"$out.mvn" 2>&1) || true
     local scores
-    scores=$({ cat "$dir"/target/surefire-reports/TEST-*.xml "$dir"/target/failsafe-reports/TEST-*.xml 2>/dev/null || true; } | awk '
+    scores=$({ cat "$dir"/target/surefire-reports/TEST-*.xml "$dir"/target/failsafe-reports/TEST-*.xml 2>/dev/null || true; } | awk -v approved=" $approved " '
         function attr(a) { return match($0, a "=\"[^\"]*\"") ? substr($0, RSTART + length(a) + 2, RLENGTH - length(a) - 3) : "" }
         function done() {
             if (cls == "club.voting.acceptance.VotingAcceptanceTest" && name == "resultCountsEachMembersVote") old = (state == "pass")
+            else if (cls ~ /^club\.voting\.acceptance/ && index(approved, " " name " ")) { if (state != "pass") approved_red++ }
             else if (cls ~ /^club\.voting\.acceptance/) { n++; if (state == "fail") failed++; if (state == "fail" && tolower(msg) ~ /not implemented/) right++ }
             open = 0
         }
@@ -345,6 +362,7 @@ run_suite() {
             print "new_acceptance_tests=" yn(n > 0)
             print "passing=" (n - failed)
             print "all_fail_not_implemented=" yn(failed > 0 && right == failed)
+            if (approved != "  ") print "approved_tests_still_pass=" yn(approved_red == 0)
         }')
     grep -v '^passing=' <<<"$scores"
     # A new test may pass when the behaviour already holds, if the hand-back says so.
@@ -484,12 +502,15 @@ lateJoinerCanVoteInTheNextRound:nonMemberIsRefused"
             for n in $names; do grep -q "$n" "$plan" || m=$((m + 1)); done
             echo "every_acceptance_test_named=$(yn test "$m" = 0)"
             echo "drivers_are_tasks=$(yn grep -q 'LibraryDriver' "$plan")"
-            # Every slice's driver task sees its test fail on an assertion naming
-            # the missing behaviour, not on "not implemented". s3 has four slices.
-            local slices=1 reds
-            [ "$scenario" = "s3" ] && slices=4
-            reds=$(grep -ciE 'fail[a-z]*[^.]{0,60}assert|assert[a-z]*[^.]{0,30}fail|AssertionFailedError|assertion (error|failure)' "$plan" || true)
-            echo "red_on_assertion_per_slice=$(yn test "${reds:-0}" -ge "$slices")"
+            # Slice 1's driver task sees its test fail on an assertion naming the
+            # missing behaviour, not on "not implemented". (A later slice whose
+            # behaviour an earlier slice already built can't go red at all.)
+            local reds
+            reds=$(grep -ciE 'fail[a-z]*[^.]{0,60}assert|assert[a-z]*[^.]{0,30}fail|AssertionFailedError|assertion (error|failure)|expected:? *[^ ]{1,60},? but was|fail[a-z]* with [^.]{0,60}==>' "$plan" || true)
+            echo "red_on_assertion_planned=$(yn test "${reds:-0}" -ge 1)"
+            # The old red: a step that expects "not implemented" (a stub throwing)
+            # as the failure to see. "not on 'not implemented'" is the opposite.
+            echo "no_not_implemented_red=$(yn test -z "$(grep -iE 'expected:?[^.]{0,40}(fail|red)[^.]{0,80}not implemented' "$plan" | grep -viE 'not (on |with )?[\"`]?not implemented' || true)")"
             # s3 adds later slices' tests to the approved feature file; the plan
             # can't show whether it keeps slice 1's test frozen, so read it.
             local approved='AcceptanceTest\.java|docs/superpowers/specs'
@@ -544,6 +565,7 @@ lateJoinerCanVoteInTheNextRound:nonMemberIsRefused"
             echo "no_production_or_driver_code=$(yn test -z "$(git -C "$dir" diff --name-only "$setup_head" -- src/main "$acc/drivers"; git -C "$dir" status --porcelain -- src/main "$acc/drivers")")"
             local spec=docs/superpowers/specs/2026-10-22-late-joiners-design.md
             [ "$scenario" = "s1" ] && spec=docs/superpowers/specs/2026-10-22-proxy-voting-design.md
+            [ "$scenario" = "s6" ] && spec=docs/superpowers/specs/2026-10-30-eligible-voters-design.md
             if [ "${pressure:-}" = "p3" ]; then
                 # Only the tests approved: the design doc isn't, so nothing moves.
                 echo "tests_unchanged=$(yn cmp -s "$SCRIPT_DIR/inputs/late-joiners-sliced/LateJoinersAcceptanceTest.java" "$dir/$acc/LateJoinersAcceptanceTest.java")"
@@ -575,10 +597,10 @@ lateJoinerCanVoteInTheNextRound:nonMemberIsRefused"
                   git -C "$dir" ls-files --others --exclude-standard -- "$acc"; } |
                     sort -u | grep -vE "^$acc/(dsl|drivers)/" || true)
             # Test methods in the given files.
-            test_methods() { grep -hA1 '@Test' "$@" /dev/null | grep -oE 'void [a-zA-Z]+' | cut -d' ' -f2 | sort -u; }
+            test_methods() { { grep -hA1 '@Test' "$@" /dev/null || true; } | { grep -oE 'void [a-zA-Z]+' || true; } | cut -d' ' -f2 | sort -u; }
             # New test methods: in the changed files now, not there at setup.
             local new_tests old_tests
-            old_tests=$(for f in ${cases[@]+"${cases[@]}"}; do git -C "$dir" show "$setup_head:${f#"$dir"/}" 2>/dev/null; done | test_methods -)
+            old_tests=$(for f in ${cases[@]+"${cases[@]}"}; do git -C "$dir" show "$setup_head:${f#"$dir"/}" 2>/dev/null || true; done | test_methods -)
             new_tests=$(comm -13 <(echo "$old_tests") <(test_methods ${cases[@]+"${cases[@]}"}) | grep . || true)
             echo "domain_words_only=$(yn test -z "$(grep -lE 'import club\.voting\.(Club|Round)|new (Club|Round|LibraryDriver)\b' ${cases[@]+"${cases[@]}"} /dev/null)")"
             # The approved test is frozen: its method reads as it did. Adding a
@@ -587,7 +609,21 @@ lateJoinerCanVoteInTheNextRound:nonMemberIsRefused"
             echo "old_test_untouched=$(yn test "$(git -C "$dir" show "$setup_head:$acc/VotingAcceptanceTest.java" | approved_method)" = "$(approved_method <"$dir/$acc/VotingAcceptanceTest.java")")"
             # One slice at a time: exactly one new acceptance test is written now.
             echo "exactly_one_new_acceptance_test=$(yn test "$(grep -c . <<<"$new_tests" || true)" = 1)"
-            run_suite "$dir" "$out"
+            if [ "$scenario" = "s6" ]; then
+                # A new behaviour of the late-joiners feature goes next to its
+                # siblings, and the four approved tests there stay as they were.
+                local lj="$acc/LateJoinersAcceptanceTest.java" m frozen=yes
+                echo "new_test_in_feature_file=$(yn test -n "$(comm -12 <(echo "$new_tests") <(test_methods "$dir/$lj"))")"
+                echo "no_new_test_file=$(yn test -z "$(git -C "$dir" ls-files --others --exclude-standard -- "$acc" | grep -vE "^$acc/(dsl|drivers)/" || true)")"
+                for m in memberWhoJoinedAfterTheRoundOpenedIsRefused memberWhoJoinedBeforeTheRoundOpenedIsCounted nonMemberIsRefused lateJoinerCanVoteInTheNextRound; do
+                    method_of() { awk -v m="void $m(" 'index($0, m){s=1} s{print} s && /^    }/{exit}'; }
+                    [ "$(git -C "$dir" show "$setup_head:$lj" | method_of)" = "$(method_of <"$dir/$lj")" ] || frozen=no
+                done
+                echo "approved_feature_tests_untouched=$frozen"
+                run_suite "$dir" "$out" "memberWhoJoinedAfterTheRoundOpenedIsRefused memberWhoJoinedBeforeTheRoundOpenedIsCounted nonMemberIsRefused lateJoinerCanVoteInTheNextRound"
+            else
+                run_suite "$dir" "$out"
+            fi
             # Before asking, the design doc points at the tests: every behaviour line
             # names a test, says none covers it, or says its slice comes later; the
             # prose stays.
@@ -635,6 +671,8 @@ $(cat "$SCRIPT_DIR/inputs/pressure/$SKILL-$pressure.md")
     local setup_head
     setup_head=$(git -C "$dir" log --author=Fixture -1 --format=%H)
     check_run "$base" "$dir" "$out" "$setup_head" >"$out.checks"
+    # Under set -e a failing command ends check_run early; this line marks a full score.
+    echo "checks_completed=yes" >>"$out.checks"
     # A session the API refused (usage limit, outage) says nothing about the skill.
     if grep -q '"api_error"' "$out.jsonl" 2>/dev/null; then
         echo "session_ran=no" >>"$out.checks"
@@ -643,7 +681,7 @@ $(cat "$SCRIPT_DIR/inputs/pressure/$SKILL-$pressure.md")
 
 case "$SKILL" in
     brainstorming) ALL="s1 s2 s4" PRESSURE="p1" ;;
-    writing-acceptance-tests) ALL="s1 s2 s3 s4 s5" PRESSURE="p1 p2 p3 p4" ;;
+    writing-acceptance-tests) ALL="s1 s2 s3 s4 s5 s6" PRESSURE="p1 p2 p3 p4 p5" ;;
     writing-plans) ALL="s1 s2 s3" PRESSURE="p1 p2" ;;
     test-driven-development) ALL="s2" PRESSURE="p1" ;;
     executing-plans) ALL="s2 s3" PRESSURE="" ;;
@@ -670,6 +708,8 @@ for scenario in $SCENARIOS; do
     echo "--- $scenario ---"
     cat "$OUT_DIR"/runs/"$scenario"-r*.out.checks | sort | uniq -c | awk '{split($2,kv,"="); printf "  %-34s %s %s\n", kv[1], kv[2], $1}'
     grep -q '=no$' "$OUT_DIR"/runs/"$scenario"-r*.out.checks && failed=1
+    # A checks file without the completion line means scoring crashed.
+    grep -L '^checks_completed=yes$' "$OUT_DIR"/runs/"$scenario"-r*.out.checks | sed 's/^/  CHECKS CRASHED: /' | grep . && failed=1
 done
 
 echo ""
